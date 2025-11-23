@@ -1,28 +1,20 @@
-// =========================================================
-// silkpanda/momentum/momentum-e07d696d5dc5be6d5d5681cef733d2cb80fb1772/app/components/auth/SignUpForm.tsx
-// REFACTORED to meet new API (v3) signup requirements
-// REFACTORED (v4) to call Embedded Web BFF
-//
-// TELA CODICIS CLEANUP: Removed local PROFILE_COLORS
-// and imported from /app/lib/constants.ts
-// =========================================================
 'use client';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Mail, Lock, User, AlertTriangle, Loader, CheckCircle, Home, Palette, CheckIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import FormInput from '../layout/FormInput'; // Your path
-import { PROFILE_COLORS } from '../../lib/constants'; // TELA CODICIS: Import constant
+import FormInput from '../layout/FormInput';
+import { PROFILE_COLORS } from '../../lib/constants';
 
-// Interface for the form state
 interface FormState {
     firstName: string;
-    lastName: string; // ADDED
+    lastName: string;
     email: string;
     password: string;
-    householdName: string; // ADDED
-    userDisplayName: string; // ADDED
+    householdName: string;
+    userDisplayName: string;
+    inviteCode?: string;
 }
 
 const SignUpForm: React.FC = () => {
@@ -33,8 +25,9 @@ const SignUpForm: React.FC = () => {
         password: '',
         householdName: '',
         userDisplayName: '',
+        inviteCode: '',
     });
-    // Add state for color picker
+    const [hasInviteCode, setHasInviteCode] = useState(false);
     const [selectedColor, setSelectedColor] = useState<string>(PROFILE_COLORS[0].hex);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -43,7 +36,7 @@ const SignUpForm: React.FC = () => {
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
-        if (error) setError(null); // Clear error on new input
+        if (error) setError(null);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -51,18 +44,27 @@ const SignUpForm: React.FC = () => {
         setError(null);
         setIsLoading(true);
 
-        // Update validation to check all new fields
         if (
             !formData.firstName || !formData.lastName || !formData.email ||
-            !formData.password || !formData.householdName || !formData.userDisplayName
+            !formData.password || !formData.userDisplayName
         ) {
             setError('Please fill in all fields.');
             setIsLoading(false);
             return;
         }
 
-        // CRITICAL FIX: Add client-side password length validation
-        // This catches the error before it hits the API
+        if (!hasInviteCode && !formData.householdName) {
+            setError('Please enter a household name.');
+            setIsLoading(false);
+            return;
+        }
+
+        if (hasInviteCode && !formData.inviteCode) {
+            setError('Please enter an invite code.');
+            setIsLoading(false);
+            return;
+        }
+
         if (formData.password.length < 8) {
             setError('Password must be at least 8 characters long.');
             setIsLoading(false);
@@ -70,16 +72,23 @@ const SignUpForm: React.FC = () => {
         }
 
         try {
-            // REFACTORED (v4): Call the Embedded Web BFF endpoint
+            const payload = {
+                ...formData,
+                userProfileColor: selectedColor,
+            };
+
+            if (hasInviteCode) {
+                delete (payload as any).householdName;
+            } else {
+                delete (payload as any).inviteCode;
+            }
+
             const response = await fetch('/web-bff/auth/signup', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    ...formData,
-                    userProfileColor: selectedColor, // Add the selected color
-                }),
+                body: JSON.stringify(payload),
             });
 
             const data = await response.json();
@@ -91,10 +100,8 @@ const SignUpForm: React.FC = () => {
                 return;
             }
 
-            // Success logic
             setSuccess(true);
 
-            // Save the token from the response
             if (data.token) {
                 localStorage.setItem('momentum_token', data.token);
             }
@@ -113,10 +120,9 @@ const SignUpForm: React.FC = () => {
     return (
         <div className="w-full max-w-lg">
             <h2 className="text-3xl font-semibold text-text-primary text-center mb-6">
-                Create Your Household
+                {hasInviteCode ? 'Join a Household' : 'Create Your Household'}
             </h2>
 
-            {/* Status Indicators */}
             {error && (
                 <div className="mb-4 flex items-center p-4 bg-signal-alert/10 text-signal-alert rounded-lg border border-signal-alert/30">
                     <AlertTriangle className="w-5 h-5 mr-3" />
@@ -130,7 +136,6 @@ const SignUpForm: React.FC = () => {
                 </div>
             )}
 
-            {/* Sign Up Form */}
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormInput
@@ -144,7 +149,6 @@ const SignUpForm: React.FC = () => {
                         onChange={handleInputChange}
                     />
 
-                    {/* Add lastName Input */}
                     <FormInput
                         id="lastName"
                         name="lastName"
@@ -157,19 +161,49 @@ const SignUpForm: React.FC = () => {
                     />
                 </div>
 
-                {/* Add householdName Input */}
-                <FormInput
-                    id="householdName"
-                    name="householdName"
-                    type="text"
-                    label="Household Name"
-                    Icon={Home}
-                    placeholder="e.g., 'The Smith Family'"
-                    value={formData.householdName}
-                    onChange={handleInputChange}
-                />
+                {/* Invite Code Toggle */}
+                <div className="flex items-center justify-between p-3 bg-bg-canvas rounded-lg border border-border-subtle">
+                    <span className="text-sm font-medium text-text-primary">Joining an existing household?</span>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setHasInviteCode(!hasInviteCode);
+                            if (!hasInviteCode) setFormData(prev => ({ ...prev, householdName: '' }));
+                            else setFormData(prev => ({ ...prev, inviteCode: '' }));
+                        }}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${hasInviteCode ? 'bg-action-primary' : 'bg-border-subtle'}`}
+                    >
+                        <span
+                            aria-hidden="true"
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${hasInviteCode ? 'translate-x-5' : 'translate-x-0'}`}
+                        />
+                    </button>
+                </div>
 
-                {/* Add userDisplayName Input */}
+                {hasInviteCode ? (
+                    <FormInput
+                        id="inviteCode"
+                        name="inviteCode"
+                        type="text"
+                        label="Invite Code"
+                        Icon={Home}
+                        placeholder="e.g., A1B2C3"
+                        value={formData.inviteCode || ''}
+                        onChange={handleInputChange}
+                    />
+                ) : (
+                    <FormInput
+                        id="householdName"
+                        name="householdName"
+                        type="text"
+                        label="Household Name"
+                        Icon={Home}
+                        placeholder="e.g., 'The Smith Family'"
+                        value={formData.householdName}
+                        onChange={handleInputChange}
+                    />
+                )}
+
                 <FormInput
                     id="userDisplayName"
                     name="userDisplayName"
@@ -203,7 +237,6 @@ const SignUpForm: React.FC = () => {
                     onChange={handleInputChange}
                 />
 
-                {/* Add Color Picker */}
                 <div className="space-y-1">
                     <label className="block text-sm font-medium text-text-secondary">
                         Your Profile Color
@@ -224,9 +257,7 @@ const SignUpForm: React.FC = () => {
                         ))}
                     </div>
                 </div>
-                {/* --- End of new fields --- */}
 
-                {/* Primary Button: Sign Up */}
                 <div>
                     <button
                         type="submit"
@@ -236,12 +267,11 @@ const SignUpForm: React.FC = () => {
                         ${isLoading || success ? 'bg-action-primary/60 cursor-not-allowed' : 'bg-action-primary hover:bg-action-hover transform hover:scale-[1.005] focus:ring-4 focus:ring-action-primary/50'}`}
                     >
                         {isLoading && <Loader className="w-5 h-5 mr-2" />}
-                        {success ? 'Signing Up...' : 'Sign Up'}
+                        {success ? (hasInviteCode ? 'Joining...' : 'Signing Up...') : (hasInviteCode ? 'Join Household' : 'Sign Up')}
                     </button>
                 </div>
             </form>
 
-            {/* Auxiliary Link */}
             <p className="mt-6 text-center text-sm text-text-secondary">
                 Already have an account?{' '}
                 <Link href="/login" className="font-medium text-action-primary hover:text-action-hover">

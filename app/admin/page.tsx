@@ -24,6 +24,7 @@ import MealDashboard from '../components/meals/MealDashboard';
 import ThemeSwitcher from '../components/settings/ThemeSwitcher';
 import Loading from '../components/layout/Loading';
 import ApprovalsDashboard from '../components/approvals/ApprovalsDashboard';
+import InviteCodeManager from '../components/settings/InviteCodeManager';
 
 type AdminTab = 'tasks' | 'store' | 'members' | 'meals' | 'approvals' | 'settings';
 
@@ -176,6 +177,7 @@ export default function AdminPage() {
                             </h2>
                             <div className="max-w-2xl">
                                 <ThemeSwitcher />
+                                <InviteCodeManager />
                             </div>
                         </div>
                     )
