@@ -15,22 +15,22 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
     const [currentTheme, setCurrentTheme] = useState<Theme>(defaultTheme);
-    const [hasPremiumAccess, setHasPremiumAccess] = useState(false);
+    // TODO: Set to false in production and tie to actual subscription status
+    const [hasPremiumAccess, setHasPremiumAccess] = useState(true); // Unlocked for testing
 
     // Load theme from localStorage on mount
     useEffect(() => {
         const savedThemeId = localStorage.getItem('momentum-theme');
-        const savedPremiumStatus = localStorage.getItem('momentum-premium') === 'true';
 
-        setHasPremiumAccess(savedPremiumStatus);
+        // TODO: In production, check actual subscription status
+        // For now, always enable premium for testing
+        setHasPremiumAccess(true);
+        localStorage.setItem('momentum-premium', 'true');
 
         if (savedThemeId && themes[savedThemeId]) {
             const theme = themes[savedThemeId];
-            // Only apply premium themes if user has access
-            if (!theme.isPremium || savedPremiumStatus) {
-                setCurrentTheme(theme);
-                applyTheme(theme);
-            }
+            setCurrentTheme(theme);
+            applyTheme(theme);
         } else {
             applyTheme(defaultTheme);
         }
@@ -49,20 +49,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         const theme = themes[themeId];
         if (!theme) return;
 
-        // Check premium access
-        if (theme.isPremium && !hasPremiumAccess) {
-            console.warn('Premium theme selected but user does not have premium access');
-            return;
-        }
+        // TODO: In production, re-enable premium check
+        // For now, allow all themes for testing
 
         setCurrentTheme(theme);
         applyTheme(theme);
         localStorage.setItem('momentum-theme', themeId);
     };
 
-    const availableThemes = Object.values(themes).filter(
-        theme => !theme.isPremium || hasPremiumAccess
-    );
+    // TODO: In production, filter by premium access
+    // For now, show all themes for testing
+    const availableThemes = Object.values(themes);
 
     return (
         <ThemeContext.Provider value={{ currentTheme, setTheme, availableThemes, hasPremiumAccess }}>

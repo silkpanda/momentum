@@ -122,6 +122,23 @@ export const themes: Record<string, Theme> = {
             borderSubtle: '#E9D5FF',
         },
     },
+    bluey: {
+        id: 'bluey',
+        name: 'Bluey',
+        description: 'Playful and warm, inspired by everyone\'s favorite Blue Heeler',
+        isPremium: true,
+        colors: {
+            textPrimary: '#2C3E50',        // Deep blue-gray for readability
+            textSecondary: '#5D6D7E',      // Softer gray-blue
+            actionPrimary: '#5B9BD5',      // Bluey's signature blue
+            actionHover: '#4A8BC2',        // Slightly darker blue
+            signalSuccess: '#52C41A',      // Bright green (grass/play)
+            signalAlert: '#FF6B6B',        // Soft red (gentle warning)
+            bgCanvas: '#FFF8E7',           // Warm cream (Queensland sun)
+            bgSurface: '#FFFFFF',          // Clean white
+            borderSubtle: '#FFE4B5',       // Soft peachy border
+        },
+    },
 };
 
 export const freeThemes = Object.values(themes).filter(t => !t.isPremium);

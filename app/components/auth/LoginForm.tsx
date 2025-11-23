@@ -90,6 +90,8 @@ const LoginForm: React.FC = () => {
             // The token is critical for authenticating subsequent API requests.
             if (data.token) {
                 localStorage.setItem('momentum_token', data.token);
+                // Dispatch custom event to notify SessionProvider
+                window.dispatchEvent(new Event('momentum_login'));
             }
 
             setSuccess(true);

@@ -14,43 +14,76 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         console.log('[SessionProvider] Initializing');
-        // Load token from localStorage
-        const storedToken = localStorage.getItem('momentum_token');
-        console.log('[SessionProvider] Stored token:', !!storedToken);
 
-        if (storedToken) {
-            setToken(storedToken);
+        const loadSession = () => {
+            // Load token from localStorage
+            const storedToken = localStorage.getItem('momentum_token');
+            console.log('[SessionProvider] Stored token:', !!storedToken);
 
-            // Fetch user data
-            console.log('[SessionProvider] Fetching user data');
-            fetch('/web-bff/auth/me', {
-                headers: { 'Authorization': `Bearer ${storedToken}` }
-            })
-                .then(res => {
-                    console.log('[SessionProvider] Auth response status:', res.status);
-                    if (!res.ok) throw new Error('Auth failed');
-                    return res.json();
+            if (storedToken) {
+                setToken(storedToken);
+
+                // Fetch user data
+                console.log('[SessionProvider] Fetching user data');
+                fetch('/web-bff/auth/me', {
+                    headers: { 'Authorization': `Bearer ${storedToken}` }
                 })
-                .then(data => {
-                    console.log('[SessionProvider] User data received:', data);
-                    // API returns { status: "success", data: { user, householdId } }
-                    if (data.data && data.data.user && data.data.householdId) {
-                        console.log('[SessionProvider] Setting user:', data.data.user);
-                        setUser(data.data.user);
-                        setHouseholdId(data.data.householdId);
-                    } else {
-                        console.error('[SessionProvider] Invalid data structure:', data);
-                    }
-                })
-                .catch(err => {
-                    console.error('[SessionProvider] Error fetching user:', err);
-                    // Clear invalid token
-                    localStorage.removeItem('momentum_token');
-                    setToken(null);
-                });
-        } else {
-            console.log('[SessionProvider] No token found');
-        }
+                    .then(res => {
+                        console.log('[SessionProvider] Auth response status:', res.status);
+                        if (!res.ok) throw new Error('Auth failed');
+                        return res.json();
+                    })
+                    .then(data => {
+                        console.log('[SessionProvider] User data received:', data);
+                        // API returns { status: "success", data: { user, householdId } }
+                        if (data.data && data.data.user && data.data.householdId) {
+                            console.log('[SessionProvider] Setting user:', data.data.user);
+                            setUser(data.data.user);
+                            setHouseholdId(data.data.householdId);
+                        } else {
+                            console.error('[SessionProvider] Invalid data structure:', data);
+                        }
+                    })
+                    .catch(err => {
+                        console.error('[SessionProvider] Error fetching user:', err);
+                        // Clear invalid token
+                        localStorage.removeItem('momentum_token');
+                        setToken(null);
+                        setUser(null);
+                        setHouseholdId(null);
+                    });
+            } else {
+                console.log('[SessionProvider] No token found');
+                setToken(null);
+                setUser(null);
+                setHouseholdId(null);
+            }
+        };
+
+        // Load session on mount
+        loadSession();
+
+        // Listen for storage changes (logout in another tab)
+        const handleStorageChange = (e: StorageEvent) => {
+            if (e.key === 'momentum_token') {
+                console.log('[SessionProvider] Storage changed, reloading session');
+                loadSession();
+            }
+        };
+
+        // Listen for custom login event
+        const handleLoginEvent = () => {
+            console.log('[SessionProvider] Login event received, reloading session');
+            loadSession();
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        window.addEventListener('momentum_login', handleLoginEvent);
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            window.removeEventListener('momentum_login', handleLoginEvent);
+        };
     }, []);
 
     console.log('[SessionProvider] Rendering - user:', !!user, 'token:', !!token, 'householdId:', householdId);

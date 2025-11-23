@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { Settings } from 'lucide-react';
 import KioskDashboard from '../components/kiosk/KioskDashboard';
 import Loading from '../components/layout/Loading';
+import ThemeSwitcher from '../components/settings/ThemeSwitcher';
 
 /**
  * Family View - The main interface for daily family interaction
@@ -39,17 +40,22 @@ export default function FamilyPage() {
                         Momentum
                     </h1>
 
-                    {/* Parent View Access (Parents Only) */}
-                    {isParent && (
-                        <button
-                            onClick={() => router.push('/admin')}
-                            className="flex items-center space-x-2 px-4 py-2 rounded-lg text-text-secondary hover:text-action-primary hover:bg-bg-canvas transition-all"
-                            title="Parent View"
-                        >
-                            <Settings className="w-5 h-5" />
-                            <span className="text-sm font-medium">Parent View</span>
-                        </button>
-                    )}
+                    <div className="flex items-center space-x-4">
+                        {/* Theme Switcher - Always Visible */}
+                        <ThemeSwitcher />
+
+                        {/* Parent View Access (Parents Only) */}
+                        {isParent && (
+                            <button
+                                onClick={() => router.push('/admin')}
+                                className="flex items-center space-x-2 px-4 py-2 rounded-lg text-text-secondary hover:text-action-primary hover:bg-bg-canvas transition-all"
+                                title="Parent View"
+                            >
+                                <Settings className="w-5 h-5" />
+                                <span className="text-sm font-medium">Parent View</span>
+                            </button>
+                        )}
+                    </div>
                 </div>
             </header>
 
