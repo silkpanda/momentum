@@ -8,53 +8,78 @@ import React, { useState } from 'react';
 import { X, Zap, Award, Calendar, Repeat, Check, Loader, AlertTriangle } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
 import { IQuest } from './QuestList';
+import {
+    validateForm,
+    getInitialFormData,
+    sanitizeFormData,
+    type FormField,
+    type FormData
+} from 'momentum-shared';
 
 interface CreateQuestModalProps {
     onClose: () => void;
     onQuestCreated: (quest: IQuest) => void;
 }
 
+const QUEST_FORM_FIELDS: FormField[] = [
+    { name: 'title', label: 'Quest Title', type: 'text', required: true, min: 3 },
+    { name: 'description', label: 'Description', type: 'textarea', required: false },
+    { name: 'pointsValue', label: 'Points Reward', type: 'number', required: true, min: 1, defaultValue: 10 },
+    { name: 'dueDate', label: 'Due Date', type: 'text', required: false }, // Using text for date input for now
+];
+
 const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ onClose, onQuestCreated }) => {
     const { token } = useSession();
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
-    const [formData, setFormData] = useState({
-        title: '',
-        description: '',
-        pointsValue: 10,
-        questType: 'one-time',
-        recurrence: 'none',
-        maxClaims: 1,
-        dueDate: '',
-    });
+    // Form State
+    const [formData, setFormData] = useState<FormData>(getInitialFormData(QUEST_FORM_FIELDS));
+    const [questType, setQuestType] = useState<'one-time' | 'recurring'>('one-time');
+    const [recurrence, setRecurrence] = useState<'daily' | 'weekly' | 'monthly'>('daily');
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: name === 'pointsValue' || name === 'maxClaims' ? parseInt(value) || 0 : value
-        }));
+    const handleChange = (name: string, value: any) => {
+        setFormData(prev => ({ ...prev, [name]: value }));
+        if (errors[name]) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[name];
+                return newErrors;
+            });
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.title || formData.pointsValue <= 0) {
-            setError('Please provide a title and valid points value.');
+
+        // 1. Validate Form Fields
+        const validation = validateForm(formData, QUEST_FORM_FIELDS);
+
+        if (!validation.isValid) {
+            setErrors(validation.errors);
             return;
         }
 
         setIsLoading(true);
-        setError(null);
+        setErrors({});
 
         try {
+            // 2. Sanitize Data
+            const sanitizedData = sanitizeFormData(formData, QUEST_FORM_FIELDS);
+
+            const payload = {
+                ...sanitizedData,
+                questType,
+                recurrence: questType === 'recurring' ? { frequency: recurrence } : undefined,
+            };
+
             const response = await fetch('/web-bff/quests', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                 },
-                body: JSON.stringify(formData),
+                body: JSON.stringify(payload),
             });
 
             const data = await response.json();
@@ -66,7 +91,7 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ onClose, onQuestCre
             onQuestCreated(data.data.quest);
             onClose();
         } catch (err: any) {
-            setError(err.message);
+            setErrors(prev => ({ ...prev, global: err.message }));
         } finally {
             setIsLoading(false);
         }
@@ -92,11 +117,13 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ onClose, onQuestCre
                             type="text"
                             name="title"
                             value={formData.title}
-                            onChange={handleChange}
+                            onChange={(e) => handleChange('title', e.target.value)}
                             placeholder="e.g., Clean the Garage"
-                            className="w-full p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none transition-all"
+                            className={`w-full p-3 rounded-lg border bg-bg-canvas text-text-primary outline-none transition-all
+                                ${errors.title ? 'border-signal-alert focus:ring-signal-alert' : 'border-border-subtle focus:ring-action-primary'}`}
                             autoFocus
                         />
+                        {errors.title && <p className="text-xs text-signal-alert mt-1">{errors.title}</p>}
                     </div>
 
                     {/* Description */}
@@ -105,7 +132,7 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ onClose, onQuestCre
                         <textarea
                             name="description"
                             value={formData.description}
-                            onChange={handleChange}
+                            onChange={(e) => handleChange('description', e.target.value)}
                             rows={3}
                             placeholder="Details about what needs to be done..."
                             className="w-full p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none transition-all resize-none"
@@ -122,11 +149,13 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ onClose, onQuestCre
                                     type="number"
                                     name="pointsValue"
                                     value={formData.pointsValue}
-                                    onChange={handleChange}
+                                    onChange={(e) => handleChange('pointsValue', e.target.value)}
                                     min="1"
-                                    className="w-full pl-10 p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
+                                    className={`w-full pl-10 p-3 rounded-lg border bg-bg-canvas text-text-primary outline-none
+                                        ${errors.pointsValue ? 'border-signal-alert focus:ring-signal-alert' : 'border-border-subtle focus:ring-action-primary'}`}
                                 />
                             </div>
+                            {errors.pointsValue && <p className="text-xs text-signal-alert mt-1">{errors.pointsValue}</p>}
                         </div>
 
                         {/* Type */}
@@ -134,8 +163,8 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ onClose, onQuestCre
                             <label className="block text-sm font-medium text-text-secondary mb-1">Type</label>
                             <select
                                 name="questType"
-                                value={formData.questType}
-                                onChange={handleChange}
+                                value={questType}
+                                onChange={(e) => setQuestType(e.target.value as any)}
                                 className="w-full p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
                             >
                                 <option value="one-time">One-time</option>
@@ -145,15 +174,15 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ onClose, onQuestCre
                     </div>
 
                     {/* Recurrence (if recurring) */}
-                    {formData.questType === 'recurring' && (
+                    {questType === 'recurring' && (
                         <div>
                             <label className="block text-sm font-medium text-text-secondary mb-1">Frequency</label>
                             <div className="relative">
                                 <Repeat className="absolute left-3 top-3 w-5 h-5 text-text-tertiary" />
                                 <select
                                     name="recurrence"
-                                    value={formData.recurrence}
-                                    onChange={handleChange}
+                                    value={recurrence}
+                                    onChange={(e) => setRecurrence(e.target.value as any)}
                                     className="w-full pl-10 p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
                                 >
                                     <option value="daily">Daily</option>
@@ -173,17 +202,17 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ onClose, onQuestCre
                                 type="date"
                                 name="dueDate"
                                 value={formData.dueDate}
-                                onChange={handleChange}
+                                onChange={(e) => handleChange('dueDate', e.target.value)}
                                 className="w-full pl-10 p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
                             />
                         </div>
                     </div>
 
-                    {/* Error Message */}
-                    {error && (
+                    {/* Global Error Message */}
+                    {errors.global && (
                         <div className="flex items-center text-sm text-signal-alert bg-signal-alert/10 p-3 rounded-lg">
                             <AlertTriangle className="w-4 h-4 mr-2 flex-shrink-0" />
-                            {error}
+                            {errors.global}
                         </div>
                     )}
 

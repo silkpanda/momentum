@@ -2,105 +2,33 @@
 // silkpanda/momentum/app/components/tasks/TaskList.tsx
 // REFACTORED for Unified Task Assignment Model (API v3)
 // REFACTORED (v4) to call Embedded Web BFF
-//
-// TELA CODICIS CLEANUP: Implemented optimistic state updates
-// for Create, Update, and Delete to improve UI performance.
-//
-// TELA CODICIS CLEANUP: Removed flawed "Mark Complete"
-// button from this management view.
 // =========================================================
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Award, Plus, Loader, AlertTriangle, Trash, Edit, CheckSquare, ChevronDown, UserCheck, UserX } from 'lucide-react';
+import { Plus, Loader, AlertTriangle, CheckSquare, UserCheck } from 'lucide-react';
 import CreateTaskModal from './CreateTaskModal';
 import { useSession } from '../layout/SessionContext';
 import EditTaskModal from './EditTaskModal';
 import DeleteTaskModal from './DeleteTaskModal';
 import { IHouseholdMemberProfile } from '../members/MemberList';
 import Collapsible from '../layout/CollapsibleSection';
+import TaskCard from '../shared/TaskCard';
 
 // --- Task Interface ---
 export interface ITask {
     _id: string;
-    title: string; // FIX: API uses 'title', not 'taskName'
+    title: string;
     description: string;
     pointsValue: number;
     isCompleted: boolean;
-    // FIX: API uses 'assignedTo', not 'assignedToRefs'
-    // API populates with displayName and profileColor
     assignedTo: {
         _id: string;
-        displayName: string; // FIX: API populates displayName, not firstName
+        displayName: string;
         profileColor?: string;
     }[];
     householdRefId: string;
 }
-
-// --- Task Item Component ---
-const TaskItem: React.FC<{
-    task: ITask;
-    onEdit: () => void;
-    onDelete: () => void;
-}> = ({ task, onEdit, onDelete }) => {
-
-    // Helper to get initials
-    const getInitials = (name: string) => name ? name.charAt(0).toUpperCase() : '?';
-
-    return (
-        <li className="flex items-center justify-between p-4 bg-bg-surface rounded-lg shadow border border-border-subtle">
-            <div className="flex items-center space-x-4">
-                {/* Icon uses semantic color role */}
-                <div className="flex-shrink-0 bg-action-primary/10 p-2 rounded-lg">
-                    <Award className="w-5 h-5 text-action-primary" />
-                </div>
-                <div>
-                    <p className="text-base font-medium text-text-primary">{task.title}</p>
-                    <p className="text-sm text-text-secondary">{task.description || 'No description'}</p>
-
-                    {/* Display assigned member avatars */}
-                    {task.assignedTo && task.assignedTo.length > 0 && (
-                        <div className="flex items-center space-x-1 mt-2">
-                            <span className="text-xs text-text-secondary mr-1">Assigned:</span>
-                            {task.assignedTo.map(member => (
-                                <div
-                                    key={member._id}
-                                    title={member.displayName}
-                                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                                    style={{ backgroundColor: member.profileColor || '#808080' }}
-                                >
-                                    {getInitials(member.displayName)}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </div>
-            <div className="flex items-center space-x-4">
-                {/* Points Value uses signal color */}
-                <div className="text-center">
-                    <p className="text-lg font-semibold text-signal-success">+{task.pointsValue}</p>
-                    <p className="text-xs text-text-secondary">Points</p>
-                </div>
-
-                {/* --- Task Actions & Status --- */}
-                {task.isCompleted && (
-                    <div className="flex items-center text-signal-success">
-                        <CheckSquare className="w-4 h-4 mr-1" />
-                        <span className="text-sm font-medium">Done</span>
-                    </div>
-                )}
-
-                <button onClick={onEdit} className="p-2 text-text-secondary hover:text-action-primary transition-colors" title="Edit Task" disabled={task.isCompleted}>
-                    <Edit className="w-4 h-4" />
-                </button>
-                <button onClick={onDelete} className="p-2 text-text-secondary hover:text-signal-alert transition-colors" title="Delete Task">
-                    <Trash className="w-4 h-4" />
-                </button>
-            </div>
-        </li>
-    );
-};
 
 // --- Main Task List Component ---
 const TaskList: React.FC = () => {
@@ -155,13 +83,10 @@ const TaskList: React.FC = () => {
     }, [fetchData]);
 
     const handleTaskCreated = (newTask: ITask) => {
-        // Refetch data to ensure assignedTo is properly populated
-        // The API returns assignedTo as string IDs, but we need populated objects
         fetchData();
     };
 
     const handleTaskUpdated = (updatedTask: ITask) => {
-        // Refetch to ensure proper population
         fetchData();
     };
 
@@ -221,7 +146,6 @@ const TaskList: React.FC = () => {
                 const assignedIncompleteTasks = incompleteTasks.filter(
                     t => !t.isCompleted && t.assignedTo && t.assignedTo.length > 0
                 );
-                // Unassigned tasks are intentionally hidden from this view as per requirements
 
                 return (
                     tasks.length > 0 ? (
@@ -234,7 +158,12 @@ const TaskList: React.FC = () => {
                                 emptyMessage="No assigned (incomplete) tasks."
                             >
                                 {assignedIncompleteTasks.map((task) => (
-                                    <TaskItem key={task._id} task={task} onEdit={() => openEditModal(task)} onDelete={() => openDeleteModal(task)} />
+                                    <TaskCard
+                                        key={task._id}
+                                        task={task}
+                                        onEdit={() => openEditModal(task)}
+                                        onDelete={() => openDeleteModal(task)}
+                                    />
                                 ))}
                             </Collapsible>
 
@@ -245,7 +174,12 @@ const TaskList: React.FC = () => {
                                 emptyMessage="No completed tasks."
                             >
                                 {completedTasks.map((task) => (
-                                    <TaskItem key={task._id} task={task} onEdit={() => openEditModal(task)} onDelete={() => openDeleteModal(task)} />
+                                    <TaskCard
+                                        key={task._id}
+                                        task={task}
+                                        onEdit={() => openEditModal(task)}
+                                        onDelete={() => openDeleteModal(task)}
+                                    />
                                 ))}
                             </Collapsible>
                         </div>

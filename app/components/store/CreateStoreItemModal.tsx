@@ -12,36 +12,62 @@ import React, { useState } from 'react';
 import { Gift, Check, Loader, Type, X, AlertTriangle, DollarSign } from 'lucide-react';
 import { IStoreItem } from './StoreItemList';
 import { useSession } from '../layout/SessionContext';
+import {
+    validateForm,
+    getInitialFormData,
+    sanitizeFormData,
+    type FormField,
+    type FormData
+} from 'momentum-shared';
 
 interface CreateStoreItemModalProps {
     onClose: () => void;
-    onItemCreated: (newItem: IStoreItem) => void; // TELA CODICIS: Pass back new item
+    onItemCreated: (newItem: IStoreItem) => void;
 }
 
+const STORE_ITEM_FORM_FIELDS: FormField[] = [
+    { name: 'itemName', label: 'Item Name', type: 'text', required: true, min: 3 },
+    { name: 'description', label: 'Description', type: 'textarea', required: false },
+    { name: 'cost', label: 'Cost (in Points)', type: 'number', required: true, min: 1, defaultValue: 100 },
+];
+
 const CreateStoreItemModal: React.FC<CreateStoreItemModalProps> = ({ onClose, onItemCreated }) => {
-    const [itemName, setItemName] = useState('');
-    const [description, setDescription] = useState('');
-    const [cost, setCost] = useState(100); // FIX: Renamed state variable to 'cost'
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const { token } = useSession();
+    const [isLoading, setIsLoading] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
+
+    // Form State
+    const [formData, setFormData] = useState<FormData>(getInitialFormData(STORE_ITEM_FORM_FIELDS));
+
+    const handleChange = (name: string, value: any) => {
+        setFormData(prev => ({ ...prev, [name]: value }));
+        if (errors[name]) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[name];
+                return newErrors;
+            });
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (itemName.trim() === '') {
-            setError('Item Name is required.');
-            return;
-        }
-        if (cost < 1) { // FIX: Use 'cost' in validation
-            setError('Cost must be at least 1 point.');
+
+        // 1. Validate Form Fields
+        const validation = validateForm(formData, STORE_ITEM_FORM_FIELDS);
+
+        if (!validation.isValid) {
+            setErrors(validation.errors);
             return;
         }
 
         setIsLoading(true);
-        setError(null);
+        setErrors({});
 
         try {
-            // REFACTORED (v4): Call the Embedded BFF endpoint
+            // 2. Sanitize Data
+            const sanitizedData = sanitizeFormData(formData, STORE_ITEM_FORM_FIELDS);
+
             const response = await fetch('/web-bff/store', {
                 method: 'POST',
                 headers: {
@@ -49,9 +75,9 @@ const CreateStoreItemModal: React.FC<CreateStoreItemModalProps> = ({ onClose, on
                     'Authorization': `Bearer ${token}`,
                 },
                 body: JSON.stringify({
-                    itemName,
-                    description,
-                    cost, // FIX: Send correct field name 'cost'
+                    itemName: sanitizedData.itemName,
+                    description: sanitizedData.description,
+                    cost: sanitizedData.cost,
                 }),
             });
 
@@ -60,11 +86,11 @@ const CreateStoreItemModal: React.FC<CreateStoreItemModalProps> = ({ onClose, on
                 throw new Error(data.message || 'Failed to create item.');
             }
 
-            onItemCreated(data.data.storeItem); // TELA CODICIS: Pass the new item object back
+            onItemCreated(data.data.storeItem);
             onClose();
 
         } catch (err: any) {
-            setError(err.message);
+            setErrors(prev => ({ ...prev, global: err.message }));
         } finally {
             setIsLoading(false);
         }
@@ -102,12 +128,14 @@ const CreateStoreItemModal: React.FC<CreateStoreItemModalProps> = ({ onClose, on
                                 id="itemName"
                                 name="itemName"
                                 type="text"
-                                value={itemName}
-                                onChange={(e) => setItemName(e.target.value)}
+                                value={formData.itemName}
+                                onChange={(e) => handleChange('itemName', e.target.value)}
                                 placeholder="e.g., '1 Hour of Video Games'"
-                                className="block w-full rounded-md border border-border-subtle p-3 pl-10 text-text-primary bg-bg-surface"
+                                className={`block w-full rounded-md border p-3 pl-10 text-text-primary bg-bg-surface
+                                    ${errors.itemName ? 'border-signal-alert focus:ring-signal-alert' : 'border-border-subtle focus:ring-action-primary'}`}
                             />
                         </div>
+                        {errors.itemName && <p className="text-xs text-signal-alert mt-1">{errors.itemName}</p>}
                     </div>
 
                     {/* Cost Input */}
@@ -124,11 +152,13 @@ const CreateStoreItemModal: React.FC<CreateStoreItemModalProps> = ({ onClose, on
                                 name="cost"
                                 type="number"
                                 min="1"
-                                value={cost}
-                                onChange={(e) => setCost(parseInt(e.target.value, 10) || 1)} // FIX: Use setCost
-                                className="block w-full rounded-md border border-border-subtle p-3 pl-10 text-text-primary bg-bg-surface"
+                                value={formData.cost}
+                                onChange={(e) => handleChange('cost', e.target.value)}
+                                className={`block w-full rounded-md border p-3 pl-10 text-text-primary bg-bg-surface
+                                    ${errors.cost ? 'border-signal-alert focus:ring-signal-alert' : 'border-border-subtle focus:ring-action-primary'}`}
                             />
                         </div>
+                        {errors.cost && <p className="text-xs text-signal-alert mt-1">{errors.cost}</p>}
                     </div>
 
                     {/* Description Input */}
@@ -140,17 +170,17 @@ const CreateStoreItemModal: React.FC<CreateStoreItemModalProps> = ({ onClose, on
                             id="description"
                             name="description"
                             rows={3}
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
+                            value={formData.description}
+                            onChange={(e) => handleChange('description', e.target.value)}
                             placeholder="e.g., 'Redeemable on weekdays after homework is done.'"
-                            className="block w-full rounded-md border border-border-subtle p-3 text-text-primary bg-bg-surface"
+                            className="block w-full rounded-md border border-border-subtle p-3 text-text-primary bg-bg-surface focus:ring-action-primary"
                         />
                     </div>
 
-                    {/* Error Display */}
-                    {error && (
+                    {/* Global Error Display */}
+                    {errors.global && (
                         <div className="flex items-center text-sm text-signal-alert">
-                            <AlertTriangle className="w-4 h-4 mr-1.5" /> {error}
+                            <AlertTriangle className="w-4 h-4 mr-1.5" /> {errors.global}
                         </div>
                     )}
 

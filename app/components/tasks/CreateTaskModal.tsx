@@ -13,6 +13,13 @@ import { Award, Check, Loader, Type, X, AlertTriangle, UserCheck } from 'lucide-
 import { ITask } from './TaskList';
 import { IHouseholdMemberProfile } from '../members/MemberList';
 import { useSession } from '../layout/SessionContext';
+import {
+    validateForm,
+    getInitialFormData,
+    sanitizeFormData,
+    type FormField,
+    type FormData
+} from 'momentum-shared';
 
 interface CreateTaskModalProps {
     onClose: () => void;
@@ -20,44 +27,55 @@ interface CreateTaskModalProps {
     householdMembers: IHouseholdMemberProfile[];
 }
 
-interface TaskFormState {
-    title: string; // FIX: API uses 'title', not 'taskName'
-    description: string;
-    pointsValue: number;
-    assignedTo: string[]; // FIX: API uses 'assignedTo', not 'assignedToRefs'
-}
+const TASK_FORM_FIELDS: FormField[] = [
+    { name: 'title', label: 'Title', type: 'text', required: true, min: 3 },
+    { name: 'description', label: 'Description', type: 'textarea', required: false },
+    { name: 'pointsValue', label: 'Points Value', type: 'number', required: true, min: 1, defaultValue: 10 },
+];
 
 const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onTaskCreated, householdMembers }) => {
-    const [formData, setFormData] = useState<TaskFormState>({
-        title: '',
-        description: '',
-        pointsValue: 10,
-        assignedTo: [],
-    });
+    const [formData, setFormData] = useState<FormData>(getInitialFormData(TASK_FORM_FIELDS));
+    const [assignedTo, setAssignedTo] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [errors, setErrors] = useState<Record<string, string>>({});
     const { token } = useSession();
+
+    const handleChange = (name: string, value: any) => {
+        setFormData(prev => ({ ...prev, [name]: value }));
+        // Clear error when user types
+        if (errors[name]) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[name];
+                return newErrors;
+            });
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (formData.title.trim() === '') {
-            setError('Task Title is a mandatory field.');
+        // 1. Validate Form Fields
+        const validation = validateForm(formData, TASK_FORM_FIELDS);
+
+        // 2. Custom Validation (Assignees)
+        if (assignedTo.length === 0) {
+            setErrors(prev => ({ ...prev, assignedTo: 'Please assign the task to at least one member.' }));
             return;
         }
-        if (formData.pointsValue < 1) {
-            setError('Points must be at least 1.');
-            return;
-        }
-        if (formData.assignedTo.length === 0) {
-            setError('Please assign the task to at least one member.');
+
+        if (!validation.isValid) {
+            setErrors(validation.errors);
             return;
         }
 
         setIsLoading(true);
-        setError(null);
+        setErrors({});
 
         try {
+            // 3. Sanitize Data
+            const sanitizedData = sanitizeFormData(formData, TASK_FORM_FIELDS);
+
             const response = await fetch('/web-bff/tasks', {
                 method: 'POST',
                 headers: {
@@ -65,10 +83,10 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onTaskCreate
                     'Authorization': `Bearer ${token}`,
                 },
                 body: JSON.stringify({
-                    title: formData.title,
-                    description: formData.description,
-                    pointsValue: formData.pointsValue,
-                    assignedTo: formData.assignedTo,
+                    title: sanitizedData.title,
+                    description: sanitizedData.description,
+                    pointsValue: sanitizedData.pointsValue,
+                    assignedTo: assignedTo,
                 }),
             });
 
@@ -81,28 +99,33 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onTaskCreate
             onClose();
 
         } catch (err: any) {
-            setError(err.message);
+            setErrors(prev => ({ ...prev, global: err.message }));
         } finally {
             setIsLoading(false);
         }
     };
 
     const toggleAssignment = (memberProfile: IHouseholdMemberProfile) => {
-        // Use the memberProfile sub-document _id (which is the reference in the household)
         const memberRefId = memberProfile._id;
-
-        setFormData(prevData => {
-            const currentAssigned = prevData.assignedTo;
-            if (currentAssigned.includes(memberRefId)) {
-                return { ...prevData, assignedTo: currentAssigned.filter(id => id !== memberRefId) };
+        setAssignedTo(prev => {
+            if (prev.includes(memberRefId)) {
+                return prev.filter(id => id !== memberRefId);
             } else {
-                return { ...prevData, assignedTo: [...currentAssigned, memberRefId] };
+                return [...prev, memberRefId];
             }
         });
+        // Clear error
+        if (errors.assignedTo) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors.assignedTo;
+                return newErrors;
+            });
+        }
     };
 
     const isMemberAssigned = (memberProfile: IHouseholdMemberProfile) => {
-        return formData.assignedTo.includes(memberProfile._id);
+        return assignedTo.includes(memberProfile._id);
     };
 
     return (
@@ -142,14 +165,13 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onTaskCreate
                                 name="title"
                                 type="text"
                                 value={formData.title}
-                                onChange={(e) => {
-                                    setFormData({ ...formData, title: e.target.value });
-                                    if (error) setError(null);
-                                }}
+                                onChange={(e) => handleChange('title', e.target.value)}
                                 placeholder="e.g., 'Empty the dishwasher'"
-                                className="block w-full rounded-md border border-border-subtle p-3 pl-10 text-text-primary bg-bg-surface"
+                                className={`block w-full rounded-md border p-3 pl-10 text-text-primary bg-bg-surface
+                                    ${errors.title ? 'border-signal-alert focus:ring-signal-alert' : 'border-border-subtle focus:ring-action-primary'}`}
                             />
                         </div>
+                        {errors.title && <p className="text-xs text-signal-alert mt-1">{errors.title}</p>}
                     </div>
 
                     {/* Points Value Input */}
@@ -167,10 +189,12 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onTaskCreate
                                 type="number"
                                 min="1"
                                 value={formData.pointsValue}
-                                onChange={(e) => setFormData({ ...formData, pointsValue: parseInt(e.target.value, 10) || 1 })}
-                                className="block w-full rounded-md border border-border-subtle p-3 pl-10 text-text-primary bg-bg-surface"
+                                onChange={(e) => handleChange('pointsValue', e.target.value)}
+                                className={`block w-full rounded-md border p-3 pl-10 text-text-primary bg-bg-surface
+                                    ${errors.pointsValue ? 'border-signal-alert focus:ring-signal-alert' : 'border-border-subtle focus:ring-action-primary'}`}
                             />
                         </div>
+                        {errors.pointsValue && <p className="text-xs text-signal-alert mt-1">{errors.pointsValue}</p>}
                     </div>
 
                     {/* Description Input */}
@@ -183,9 +207,9 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onTaskCreate
                             name="description"
                             rows={3}
                             value={formData.description}
-                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            onChange={(e) => handleChange('description', e.target.value)}
                             placeholder="e.g., 'Make sure all dishes are put away correctly.'"
-                            className="block w-full rounded-md border border-border-subtle p-3 text-text-primary bg-bg-surface"
+                            className="block w-full rounded-md border border-border-subtle p-3 text-text-primary bg-bg-surface focus:ring-action-primary"
                         />
                     </div>
 
@@ -194,7 +218,8 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onTaskCreate
                         <label className="block text-sm font-medium text-text-secondary">
                             Assign to (Mandatory)
                         </label>
-                        <div className="flex flex-wrap gap-2 p-2 bg-bg-canvas rounded-lg border border-border-subtle">
+                        <div className={`flex flex-wrap gap-2 p-2 bg-bg-canvas rounded-lg border 
+                            ${errors.assignedTo ? 'border-signal-alert' : 'border-border-subtle'}`}>
                             {householdMembers.length > 0 ? householdMembers.map((member) => (
                                 <button
                                     type="button"
@@ -221,12 +246,13 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onTaskCreate
                                 <p className="text-sm text-text-secondary p-2">No members available to assign.</p>
                             )}
                         </div>
+                        {errors.assignedTo && <p className="text-xs text-signal-alert mt-1">{errors.assignedTo}</p>}
                     </div>
 
-                    {/* Error Display */}
-                    {error && (
+                    {/* Global Error Display */}
+                    {errors.global && (
                         <div className="flex items-center text-sm text-signal-alert">
-                            <AlertTriangle className="w-4 h-4 mr-1.5" /> {error}
+                            <AlertTriangle className="w-4 h-4 mr-1.5" /> {errors.global}
                         </div>
                     )}
 

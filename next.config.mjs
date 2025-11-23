@@ -5,6 +5,7 @@
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    transpilePackages: ['momentum-shared'],
 };
 
 export default nextConfig;
