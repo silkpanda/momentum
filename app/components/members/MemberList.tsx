@@ -196,12 +196,12 @@ const MemberList: React.FC = () => {
 
     /**
      * Helper to count assigned, incomplete tasks for a member.
-     * We use the familyMemberId for matching, as this is the ID used in task assignments.
+     * We use the member._id (Profile ID) for matching.
      */
-    const getAssignedTaskCount = (memberFamilyId: string) => {
+    const getAssignedTaskCount = (memberId: string) => {
         return tasks.filter(task =>
             !task.isCompleted &&
-            task.assignedTo.some(profile => profile._id === memberFamilyId)
+            task.assignedTo.some(profile => profile._id === memberId)
         ).length;
     };
 
@@ -259,7 +259,7 @@ const MemberList: React.FC = () => {
                                 emptyMessage="No parents in this section."
                             >
                                 {parentProfiles.map((member) => (
-                                    <MemberItem key={member._id} member={member} isSelf={member.familyMemberId._id === user?._id} onEdit={() => openEditModal(member)} onDelete={() => openDeleteModal(member)} onOpenProfile={() => openProfileModal(member)} assignedTaskCount={getAssignedTaskCount(member.familyMemberId._id)} />
+                                    <MemberItem key={member._id} member={member} isSelf={member.familyMemberId._id === user?._id} onEdit={() => openEditModal(member)} onDelete={() => openDeleteModal(member)} onOpenProfile={() => openProfileModal(member)} assignedTaskCount={getAssignedTaskCount(member._id)} />
                                 ))}
                             </CollapsibleSection>
 
@@ -277,7 +277,7 @@ const MemberList: React.FC = () => {
                                         onEdit={() => openEditModal(member)}
                                         onDelete={() => openDeleteModal(member)}
                                         onOpenProfile={() => openProfileModal(member)} // Pass handler
-                                        assignedTaskCount={getAssignedTaskCount(member.familyMemberId._id)} // Pass count
+                                        assignedTaskCount={getAssignedTaskCount(member._id)} // Pass count
                                     />
                                 ))}
                             </CollapsibleSection>

@@ -23,6 +23,7 @@ import MemberList from '../components/members/MemberList';
 import MealDashboard from '../components/meals/MealDashboard';
 import ThemeSwitcher from '../components/settings/ThemeSwitcher';
 import Loading from '../components/layout/Loading';
+import ApprovalsDashboard from '../components/approvals/ApprovalsDashboard';
 
 type AdminTab = 'tasks' | 'store' | 'members' | 'meals' | 'approvals' | 'settings';
 
@@ -161,14 +162,8 @@ export default function AdminPage() {
 
                 {
                     activeTab === 'approvals' && (
-                        <div className="text-center py-12">
-                            <CheckCircle className="w-16 h-16 text-text-secondary mx-auto mb-4 opacity-50" />
-                            <h3 className="text-xl font-semibold text-text-primary mb-2">
-                                Approvals Dashboard
-                            </h3>
-                            <p className="text-text-secondary">
-                                Approval system coming soon
-                            </p>
+                        <div>
+                            <ApprovalsDashboard />
                         </div>
                     )
                 }

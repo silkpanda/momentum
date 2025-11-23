@@ -10,10 +10,33 @@ import { useSession } from '../layout/SessionContext';
 import { IHouseholdMemberProfile } from '../members/MemberList';
 import { ITask } from '../tasks/TaskList';
 import { IStoreItem } from '../store/StoreItemList';
-import { Loader, AlertTriangle, User, Calendar, UtensilsCrossed, ListTodo } from 'lucide-react';
+import { Loader, AlertTriangle, User, Calendar, UtensilsCrossed, ListTodo, Bell } from 'lucide-react';
 import KioskMemberProfileModal from './KioskMemberProfileModal';
 import { useSocketEvent } from '../../../lib/hooks/useSocket';
 import { SOCKET_EVENTS, TaskUpdatedEvent, MemberPointsUpdatedEvent, StoreItemUpdatedEvent, HouseholdUpdatedEvent } from '../../../lib/socket';
+
+// --- Types ---
+
+interface IMealPlan {
+    _id: string;
+    date: string;
+    meals: {
+        dinner: {
+            mainDishId?: string;
+            sideDish?: string;
+            restaurantId?: string;
+            notes?: string;
+        }
+    }
+}
+
+interface IRecipe {
+    _id: string;
+    name: string;
+    description?: string;
+    prepTime?: number;
+    cookTime?: number;
+}
 
 // --- Member Avatar Card Component ---
 interface MemberAvatarProps {
@@ -102,6 +125,25 @@ const InfoCard: React.FC<InfoCardProps> = ({ icon: Icon, title, children }) => {
     );
 };
 
+// --- Remind Parent FAB ---
+const RemindParentButton: React.FC = () => {
+    const handlePress = () => {
+        // In a real app, this would send a push notification
+        alert('Parent has been notified! (Simulation)');
+    };
+
+    return (
+        <button
+            onClick={handlePress}
+            className="fixed bottom-8 right-8 bg-action-primary text-white p-4 rounded-full shadow-xl 
+                       hover:bg-action-hover hover:scale-110 transition-all duration-300 z-50 flex items-center gap-2"
+        >
+            <Bell className="w-6 h-6" />
+            <span className="font-bold pr-2">Remind Parent</span>
+        </button>
+    );
+};
+
 // --- Main Kiosk Dashboard Component ---
 const KioskDashboard: React.FC = () => {
     console.log('[KioskDashboard] Component rendering');
@@ -111,6 +153,8 @@ const KioskDashboard: React.FC = () => {
     const [members, setMembers] = useState<IHouseholdMemberProfile[]>([]);
     const [tasks, setTasks] = useState<ITask[]>([]);
     const [storeItems, setStoreItems] = useState<IStoreItem[]>([]);
+    const [mealPlans, setMealPlans] = useState<IMealPlan[]>([]);
+    const [recipes, setRecipes] = useState<IRecipe[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -148,6 +192,8 @@ const KioskDashboard: React.FC = () => {
                 setMembers(data.memberProfiles);
                 setTasks(data.tasks);
                 setStoreItems(data.storeItems);
+                setMealPlans(data.mealPlans || []);
+                setRecipes(data.recipes || []);
                 console.log('[KioskDashboard] Data set successfully');
             } else {
                 throw new Error('Invalid data structure');
@@ -231,10 +277,11 @@ const KioskDashboard: React.FC = () => {
     });
 
     // Get task count for a member
-    const getTaskCount = (memberFamilyId: string) => {
+    // NOTE: We use the member's PROFILE ID (_id), not the user ID (familyMemberId._id)
+    const getTaskCount = (memberProfileId: string) => {
         return tasks.filter(task =>
             !task.isCompleted &&
-            task.assignedTo?.some(assignee => assignee._id === memberFamilyId)
+            task.assignedTo?.some(assignee => assignee._id === memberProfileId)
         ).length;
     };
 
@@ -249,6 +296,40 @@ const KioskDashboard: React.FC = () => {
         setSelectedMember(null);
         // No need to refresh data - WebSocket updates handle this automatically
     };
+
+    // --- Helpers for Meal Display ---
+    const getTodaysMeal = () => {
+        const today = new Date().toISOString().split('T')[0];
+        const todaysPlan = mealPlans.find(p => p.date.startsWith(today));
+
+        if (todaysPlan) {
+            if (todaysPlan.meals.dinner.restaurantId) {
+                return {
+                    title: 'Eating Out',
+                    description: 'Restaurant Night!'
+                };
+            }
+            const mainDish = recipes.find(r => r._id === todaysPlan.meals.dinner.mainDishId);
+            return {
+                title: mainDish ? mainDish.name : 'Dinner',
+                description: todaysPlan.meals.dinner.sideDish || (mainDish?.description) || 'Delicious meal'
+            };
+        }
+
+        // Fallback: Show a random recipe if no plan
+        if (recipes.length > 0) {
+            const randomRecipe = recipes[0]; // Just take first for now
+            return {
+                title: randomRecipe.name,
+                description: 'Suggested Meal'
+            };
+        }
+
+        return null;
+    };
+
+    const todaysMeal = getTodaysMeal();
+
 
     if (loading) {
         return (
@@ -277,7 +358,7 @@ const KioskDashboard: React.FC = () => {
     const totalCompletedTasks = tasks.filter(t => t.isCompleted).length;
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 pb-24">
             {/* Page Title */}
             <div className="text-center mb-8">
                 <h1 className="text-4xl font-bold text-text-primary mb-2">
@@ -306,7 +387,7 @@ const KioskDashboard: React.FC = () => {
                             <MemberAvatar
                                 key={member._id}
                                 member={member}
-                                taskCount={getTaskCount(member.familyMemberId._id)}
+                                taskCount={getTaskCount(member._id)}
                                 onClick={() => handleMemberClick(member)}
                             />
                         ))}
@@ -337,20 +418,30 @@ const KioskDashboard: React.FC = () => {
                 <InfoCard icon={Calendar} title="Today's Schedule">
                     <div className="text-center py-4">
                         <p className="text-text-secondary">
-                            Calendar integration coming soon
+                            No events scheduled for today
                         </p>
                     </div>
                 </InfoCard>
 
-                {/* Meal Plan (Placeholder) */}
+                {/* Meal Plan */}
                 <InfoCard icon={UtensilsCrossed} title="Today's Meals">
-                    <div className="text-center py-4">
-                        <p className="text-text-secondary">
-                            Meal planning coming soon
-                        </p>
+                    <div className="text-center py-2">
+                        {todaysMeal ? (
+                            <div>
+                                <h3 className="text-lg font-bold text-text-primary">{todaysMeal.title}</h3>
+                                <p className="text-text-secondary">{todaysMeal.description}</p>
+                            </div>
+                        ) : (
+                            <p className="text-text-secondary">
+                                No meal planned
+                            </p>
+                        )}
                     </div>
                 </InfoCard>
             </section>
+
+            {/* Remind Parent Button */}
+            <RemindParentButton />
 
             {/* Member Profile Modal */}
             {

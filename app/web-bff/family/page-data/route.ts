@@ -44,12 +44,14 @@ export async function GET() {
         }
 
         // 2. Make parallel calls to the internal 'momentum-api' with the householdId
-        const [householdResponse, taskResponse, storeResponse] = await Promise.all([
+        const [householdResponse, taskResponse, storeResponse, mealPlansResponse, recipesResponse] = await Promise.all([
             fetch(`${API_BASE_URL}/households/${householdId}`, {
                 headers: { 'Authorization': authorization }
             }),
             fetch(TASK_API_URL, { headers: { 'Authorization': authorization } }),
             fetch(STORE_API_URL, { headers: { 'Authorization': authorization } }),
+            fetch(`${API_BASE_URL}/meals/plans`, { headers: { 'Authorization': authorization } }),
+            fetch(`${API_BASE_URL}/meals/recipes`, { headers: { 'Authorization': authorization } }),
         ]);
 
         // 3. Check all responses
@@ -57,11 +59,12 @@ export async function GET() {
         if (!taskResponse.ok) throw new Error('Failed to fetch task data');
         if (!storeResponse.ok) throw new Error('Failed to fetch store item data');
 
-
         // 4. Parse data
         const householdData = await householdResponse.json();
         const taskData = await taskResponse.json();
         const storeData = await storeResponse.json();
+        const mealPlansData = mealPlansResponse.ok ? await mealPlansResponse.json() : { data: { mealPlans: [] } };
+        const recipesData = recipesResponse.ok ? await recipesResponse.json() : { data: { recipes: [] } };
 
         // 5. Populate task assignments with member details
         const memberProfiles = householdData.data.memberProfiles || [];
@@ -74,6 +77,8 @@ export async function GET() {
             memberProfiles: memberProfiles,
             tasks: Array.isArray(populatedTasks) ? populatedTasks : [populatedTasks],
             storeItems: storeData.data.storeItems || [],
+            mealPlans: mealPlansData.data.mealPlans || [],
+            recipes: recipesData.data.recipes || [],
         });
 
     } catch (err: any) {

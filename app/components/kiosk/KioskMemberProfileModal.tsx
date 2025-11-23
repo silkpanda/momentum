@@ -33,9 +33,10 @@ const KioskMemberProfileModal: React.FC<KioskMemberProfileModalProps> = ({
     const [error, setError] = useState<string | null>(null);
 
     // Filter tasks for this member
+    // NOTE: We compare with member._id (profile ID), not member.familyMemberId._id (user ID)
     const memberTasks = allTasks.filter(task =>
         !task.isCompleted &&
-        task.assignedTo?.some(assignee => assignee._id === member.familyMemberId._id)
+        task.assignedTo?.some(assignee => assignee._id === member._id)
     );
 
     // Filter store items by affordability
@@ -56,7 +57,7 @@ const KioskMemberProfileModal: React.FC<KioskMemberProfileModalProps> = ({
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                 },
-                body: JSON.stringify({ memberId: member.familyMemberId._id }),
+                body: JSON.stringify({ memberId: member._id }),
             });
 
             if (!response.ok) {
@@ -88,8 +89,8 @@ const KioskMemberProfileModal: React.FC<KioskMemberProfileModalProps> = ({
         <button
             onClick={() => setActiveTab(tab)}
             className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all ${activeTab === tab
-                    ? 'bg-action-primary text-white shadow-lg'
-                    : 'bg-bg-canvas text-text-secondary hover:bg-border-subtle'
+                ? 'bg-action-primary text-white shadow-lg'
+                : 'bg-bg-canvas text-text-secondary hover:bg-border-subtle'
                 }`}
         >
             <Icon className="w-5 h-5" />

@@ -48,14 +48,15 @@ const ProfileTaskItem: React.FC<{ task: ITask; isComplete: boolean }> = ({ task,
 const MemberProfileModal: React.FC<MemberProfileModalProps> = ({ member, allTasks, onClose }) => {
 
     // Filter tasks for this specific member
+    // FIX: Compare task.assignedTo._id (Profile ID) with member._id (Profile ID)
     const incompleteTasks = allTasks.filter(task =>
         !task.isCompleted &&
-        task.assignedTo.some(profile => profile._id === member.familyMemberId._id)
+        task.assignedTo.some(profile => profile._id === member._id)
     );
 
     const completedTasks = allTasks.filter(task =>
         task.isCompleted &&
-        task.assignedTo.some(profile => profile._id === member.familyMemberId._id)
+        task.assignedTo.some(profile => profile._id === member._id)
     );
 
     return (
