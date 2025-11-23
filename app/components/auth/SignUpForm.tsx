@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Mail, Lock, User, AlertTriangle, Loader, CheckCircle, Home, Palette, CheckIcon } from 'lucide-react';
+import { Mail, Lock, User, AlertTriangle, Loader, CheckCircle, Home, CheckIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import FormInput from '../layout/FormInput';
 import { PROFILE_COLORS } from '../../lib/constants';
@@ -107,7 +107,7 @@ const SignUpForm: React.FC = () => {
             }
 
             setTimeout(() => {
-                router.push('/dashboard');
+                router.push('/family');
             }, 1500);
 
         } catch (err) {
