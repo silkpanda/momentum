@@ -155,11 +155,14 @@ const TaskList: React.FC = () => {
     }, [fetchData]);
 
     const handleTaskCreated = (newTask: ITask) => {
-        setTasks(current => [...current, newTask]);
+        // Refetch data to ensure assignedTo is properly populated
+        // The API returns assignedTo as string IDs, but we need populated objects
+        fetchData();
     };
 
     const handleTaskUpdated = (updatedTask: ITask) => {
-        setTasks(current => current.map(t => t._id === updatedTask._id ? updatedTask : t));
+        // Refetch to ensure proper population
+        fetchData();
     };
 
     const handleTaskDeleted = () => {
