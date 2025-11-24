@@ -45,7 +45,7 @@ const EditTaskModal: React.FC<EditTaskModalProps> = ({
                 assignedIds.push(match._id);
             }
         });
-        return [...new Set(assignedIds)];
+        return Array.from(new Set(assignedIds));
     });
 
     const [isLoading, setIsLoading] = useState(false);

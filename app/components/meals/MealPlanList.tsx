@@ -9,25 +9,30 @@ import { Plus, Calendar, Search, Pencil } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
 import CreateMealPlanModal from './CreateMealPlanModal';
 import EditMealPlanModal from './EditMealPlanModal';
+import { IRecipe } from './RecipeList';
+import { IRestaurant } from './RestaurantList';
 
 export interface IMealPlan {
     _id: string;
     startDate: string;
     endDate: string;
     meals: {
+        _id: string;
         date: string;
-        mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
-        recipeId?: string; // Ref to Recipe
-        restaurantId?: string; // Ref to Restaurant
-        notes?: string;
+        mealType: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
+        itemType: 'Recipe' | 'Restaurant' | 'Custom';
+        itemId?: { _id: string; name: string; title?: string }; // Populated
+        customTitle?: string;
     }[];
 }
 
 interface MealPlanListProps {
     mealPlans: IMealPlan[];
+    recipes: IRecipe[];
+    restaurants: IRestaurant[];
 }
 
-const MealPlanList: React.FC<MealPlanListProps> = ({ mealPlans: initialMealPlans }) => {
+const MealPlanList: React.FC<MealPlanListProps> = ({ mealPlans: initialMealPlans, recipes, restaurants }) => {
     const { user } = useSession();
     const [mealPlans, setMealPlans] = useState<IMealPlan[]>(initialMealPlans);
 
@@ -67,6 +72,8 @@ const MealPlanList: React.FC<MealPlanListProps> = ({ mealPlans: initialMealPlans
             {editingPlan && (
                 <EditMealPlanModal
                     mealPlan={editingPlan}
+                    recipes={recipes}
+                    restaurants={restaurants}
                     onClose={() => setEditingPlan(null)}
                     onMealPlanUpdated={handleMealPlanUpdated}
                 />
@@ -93,7 +100,6 @@ const MealPlanList: React.FC<MealPlanListProps> = ({ mealPlans: initialMealPlans
                                 </button>
                                 {user?.role === 'Parent' && (
                                     <>
-                                        {/* Edit button disabled: API does not support updating meal plans
                                         <button
                                             onClick={() => setEditingPlan(plan)}
                                             className="p-2 text-text-tertiary hover:text-action-primary hover:bg-action-primary/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
@@ -101,7 +107,6 @@ const MealPlanList: React.FC<MealPlanListProps> = ({ mealPlans: initialMealPlans
                                         >
                                             <Pencil className="w-4 h-4" />
                                         </button>
-                                        */}
                                     </>
                                 )}
                             </div>

@@ -22,6 +22,7 @@ export interface ITask {
     description: string;
     pointsValue: number;
     isCompleted: boolean;
+    status?: 'Pending' | 'In Progress' | 'Completed' | 'Approved';
     assignedTo: {
         _id: string;
         displayName: string;
@@ -160,7 +161,7 @@ const TaskList: React.FC = () => {
                                 {assignedIncompleteTasks.map((task) => (
                                     <TaskCard
                                         key={task._id}
-                                        task={task}
+                                        task={task as any}
                                         onEdit={() => openEditModal(task)}
                                         onDelete={() => openDeleteModal(task)}
                                     />
@@ -176,7 +177,7 @@ const TaskList: React.FC = () => {
                                 {completedTasks.map((task) => (
                                     <TaskCard
                                         key={task._id}
-                                        task={task}
+                                        task={task as any}
                                         onEdit={() => openEditModal(task)}
                                         onDelete={() => openDeleteModal(task)}
                                     />

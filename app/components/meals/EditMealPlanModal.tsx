@@ -1,50 +1,69 @@
 // =========================================================
 // silkpanda/momentum/app/components/meals/EditMealPlanModal.tsx
-// Modal for editing an existing meal plan
+// Modal for editing an existing meal plan and managing meals
 // =========================================================
 'use client';
 
-import React, { useState } from 'react';
-import { X, Calendar, Loader, AlertTriangle, Check } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { X, Calendar, Loader, AlertTriangle, Check, Plus, Trash2, Utensils } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
 import { IMealPlan } from './MealPlanList';
+import { IRecipe } from './RecipeList';
+import { IRestaurant } from './RestaurantList';
 
 interface EditMealPlanModalProps {
     mealPlan: IMealPlan;
+    recipes: IRecipe[];
+    restaurants: IRestaurant[];
     onClose: () => void;
     onMealPlanUpdated: (plan: IMealPlan) => void;
 }
 
-const EditMealPlanModal: React.FC<EditMealPlanModalProps> = ({ mealPlan, onClose, onMealPlanUpdated }) => {
+const EditMealPlanModal: React.FC<EditMealPlanModalProps> = ({ mealPlan, recipes, restaurants, onClose, onMealPlanUpdated }) => {
     const { token } = useSession();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [localMeals, setLocalMeals] = useState(mealPlan.meals || []);
 
     const [formData, setFormData] = useState({
         startDate: mealPlan.startDate.split('T')[0],
         endDate: mealPlan.endDate.split('T')[0]
     });
 
+    // State for the "Add Meal" form
+    const [addingMealFor, setAddingMealFor] = useState<{ date: string, type: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack' } | null>(null);
+    const [newItemType, setNewItemType] = useState<'Recipe' | 'Restaurant'>('Recipe');
+    const [newItemId, setNewItemId] = useState<string>('');
+
+    const days = useMemo(() => {
+        const start = new Date(formData.startDate);
+        const end = new Date(formData.endDate);
+        const dayList = [];
+        // Safety check to prevent infinite loop if dates are invalid
+        if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return [];
+
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            dayList.push(new Date(d));
+        }
+        return dayList;
+    }, [formData.startDate, formData.endDate]);
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleUpdateDates = async (e: React.FormEvent) => {
         e.preventDefault();
+        // ... (Date update logic - same as before, but maybe we don't need a separate submit for dates if we just auto-save or have a global save? 
+        // For now, let's keep date updating separate or just update the plan container)
+
         if (!formData.startDate || !formData.endDate) {
             setError('Please select both start and end dates.');
             return;
         }
 
-        if (new Date(formData.startDate) > new Date(formData.endDate)) {
-            setError('Start date must be before end date.');
-            return;
-        }
-
         setIsLoading(true);
-        setError(null);
-
         try {
             const response = await fetch(`/web-bff/meals/plans/${mealPlan._id}`, {
                 method: 'PATCH',
@@ -59,13 +78,10 @@ const EditMealPlanModal: React.FC<EditMealPlanModalProps> = ({ mealPlan, onClose
             });
 
             const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Failed to update meal plan');
 
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to update meal plan');
-            }
-
-            onMealPlanUpdated(data.data.mealPlan);
-            onClose();
+            onMealPlanUpdated({ ...data.data.mealPlan, meals: localMeals }); // Preserve local meals state
+            // Don't close, just notify success?
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -73,61 +89,222 @@ const EditMealPlanModal: React.FC<EditMealPlanModalProps> = ({ mealPlan, onClose
         }
     };
 
+    const handleAddMeal = async () => {
+        if (!addingMealFor || !newItemId) return;
+
+        setIsLoading(true);
+        try {
+            const response = await fetch(`/web-bff/meals/plans/${mealPlan._id}/meals`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    date: addingMealFor.date,
+                    mealType: addingMealFor.type,
+                    itemType: newItemType,
+                    itemId: newItemId
+                }),
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Failed to add meal');
+
+            // Add to local state
+            setLocalMeals([...localMeals, data.data.meal]);
+            setAddingMealFor(null);
+            setNewItemId('');
+
+            // Update parent list
+            onMealPlanUpdated({ ...mealPlan, meals: [...localMeals, data.data.meal] });
+
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleRemoveMeal = async (mealId: string) => {
+        if (!confirm('Are you sure you want to remove this meal?')) return;
+        setIsLoading(true);
+        try {
+            const response = await fetch(`/web-bff/meals/plans/${mealPlan._id}/meals/${mealId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+
+            if (!response.ok) throw new Error('Failed to remove meal');
+
+            const updatedMeals = localMeals.filter(m => m._id !== mealId);
+            setLocalMeals(updatedMeals);
+            onMealPlanUpdated({ ...mealPlan, meals: updatedMeals });
+
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const getMealsForDayAndType = (date: Date, type: string) => {
+        return localMeals.filter(m => {
+            const mDate = new Date(m.date).toISOString().split('T')[0];
+            const tDate = date.toISOString().split('T')[0];
+            return mDate === tDate && m.mealType === type;
+        });
+    };
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-            <div className="relative w-full max-w-md p-6 bg-bg-surface rounded-xl shadow-xl border border-border-subtle" onClick={e => e.stopPropagation()}>
-                <button onClick={onClose} className="absolute top-4 right-4 p-1 rounded-full text-text-secondary hover:bg-border-subtle">
-                    <X className="w-5 h-5" />
-                </button>
+            <div className="relative w-full max-w-4xl max-h-[90vh] flex flex-col bg-bg-surface rounded-xl shadow-xl border border-border-subtle" onClick={e => e.stopPropagation()}>
 
-                <h2 className="text-xl font-bold text-text-primary mb-6 flex items-center">
-                    <Calendar className="w-6 h-6 mr-2 text-action-primary" />
-                    Edit Meal Plan
-                </h2>
+                {/* Header */}
+                <div className="flex items-center justify-between p-6 border-b border-border-subtle">
+                    <h2 className="text-xl font-bold text-text-primary flex items-center">
+                        <Calendar className="w-6 h-6 mr-2 text-action-primary" />
+                        Edit Meal Plan
+                    </h2>
+                    <button onClick={onClose} className="p-2 rounded-full text-text-secondary hover:bg-border-subtle transition-colors">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Start Date */}
-                    <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-1">Start Date</label>
-                        <input
-                            type="date"
-                            name="startDate"
-                            value={formData.startDate}
-                            onChange={handleChange}
-                            className="w-full p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
-                        />
-                    </div>
+                <div className="flex-1 overflow-y-auto p-6">
+                    {/* Date Range Form */}
+                    <form onSubmit={handleUpdateDates} className="flex space-x-4 items-end mb-8 bg-bg-canvas p-4 rounded-lg border border-border-subtle">
+                        <div className="flex-1">
+                            <label className="block text-sm font-medium text-text-secondary mb-1">Start Date</label>
+                            <input
+                                type="date"
+                                name="startDate"
+                                value={formData.startDate}
+                                onChange={handleChange}
+                                className="w-full p-2 rounded-lg border border-border-subtle bg-bg-surface text-text-primary text-sm"
+                            />
+                        </div>
+                        <div className="flex-1">
+                            <label className="block text-sm font-medium text-text-secondary mb-1">End Date</label>
+                            <input
+                                type="date"
+                                name="endDate"
+                                value={formData.endDate}
+                                onChange={handleChange}
+                                className="w-full p-2 rounded-lg border border-border-subtle bg-bg-surface text-text-primary text-sm"
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={isLoading}
+                            className="px-4 py-2 bg-text-secondary/10 text-text-primary rounded-lg hover:bg-text-secondary/20 transition-colors text-sm font-medium"
+                        >
+                            Update Dates
+                        </button>
+                    </form>
 
-                    {/* End Date */}
-                    <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-1">End Date</label>
-                        <input
-                            type="date"
-                            name="endDate"
-                            value={formData.endDate}
-                            onChange={handleChange}
-                            className="w-full p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
-                        />
-                    </div>
-
-                    {/* Error */}
                     {error && (
-                        <div className="flex items-center text-sm text-signal-alert bg-signal-alert/10 p-3 rounded-lg">
+                        <div className="mb-6 flex items-center text-sm text-signal-alert bg-signal-alert/10 p-3 rounded-lg">
                             <AlertTriangle className="w-4 h-4 mr-2 flex-shrink-0" />
                             {error}
                         </div>
                     )}
 
-                    {/* Submit */}
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        className={`w-full flex justify-center items-center py-3 px-4 rounded-lg text-white font-medium transition-all
-                            ${isLoading ? 'bg-action-primary/70 cursor-not-allowed' : 'bg-action-primary hover:bg-action-primary/90 shadow-md hover:shadow-lg'}`}
-                    >
-                        {isLoading ? <Loader className="w-5 h-5 animate-spin" /> : <><Check className="w-5 h-5 mr-2" /> Save Changes</>}
-                    </button>
-                </form>
+                    {/* Weekly Schedule */}
+                    <div className="space-y-8">
+                        {days.map((day) => (
+                            <div key={day.toISOString()} className="border border-border-subtle rounded-xl overflow-hidden">
+                                <div className="bg-bg-canvas px-4 py-3 border-b border-border-subtle flex justify-between items-center">
+                                    <h3 className="font-semibold text-text-primary">
+                                        {day.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                                    </h3>
+                                </div>
+                                <div className="p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    {['Breakfast', 'Lunch', 'Dinner', 'Snack'].map((type) => (
+                                        <div key={type} className="space-y-2">
+                                            <h4 className="text-xs font-medium text-text-tertiary uppercase tracking-wider">{type}</h4>
+
+                                            {/* Existing Meals */}
+                                            <div className="space-y-2">
+                                                {getMealsForDayAndType(day, type).map(meal => (
+                                                    <div key={meal._id} className="flex items-start justify-between p-2 bg-bg-canvas rounded-lg border border-border-subtle group">
+                                                        <div className="flex-1 min-w-0 mr-2">
+                                                            <p className="text-sm font-medium text-text-primary truncate">
+                                                                {meal.itemId?.title || meal.itemId?.name || meal.customTitle || 'Unknown Item'}
+                                                            </p>
+                                                            <p className="text-xs text-text-secondary">
+                                                                {meal.itemType}
+                                                            </p>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleRemoveMeal(meal._id)}
+                                                            className="text-text-tertiary hover:text-signal-alert opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {/* Add Meal Button / Form */}
+                                            {addingMealFor?.date === day.toISOString().split('T')[0] && addingMealFor?.type === type ? (
+                                                <div className="p-3 bg-bg-canvas rounded-lg border border-action-primary/30 shadow-sm animate-in fade-in zoom-in-95 duration-200">
+                                                    <div className="space-y-2 mb-2">
+                                                        <select
+                                                            value={newItemType}
+                                                            onChange={e => setNewItemType(e.target.value as any)}
+                                                            className="w-full p-1.5 text-sm rounded border border-border-subtle bg-bg-surface text-text-primary"
+                                                        >
+                                                            <option value="Recipe">Recipe</option>
+                                                            <option value="Restaurant">Restaurant</option>
+                                                        </select>
+                                                        <select
+                                                            value={newItemId}
+                                                            onChange={e => setNewItemId(e.target.value)}
+                                                            className="w-full p-1.5 text-sm rounded border border-border-subtle bg-bg-surface text-text-primary"
+                                                        >
+                                                            <option value="">Select Item...</option>
+                                                            {newItemType === 'Recipe' ? (
+                                                                recipes.map(r => <option key={r._id} value={r._id}>{r.title}</option>)
+                                                            ) : (
+                                                                restaurants.map(r => <option key={r._id} value={r._id}>{r.name}</option>)
+                                                            )}
+                                                        </select>
+                                                    </div>
+                                                    <div className="flex space-x-2">
+                                                        <button
+                                                            onClick={handleAddMeal}
+                                                            disabled={!newItemId || isLoading}
+                                                            className="flex-1 py-1 bg-action-primary text-white text-xs font-medium rounded hover:bg-action-hover disabled:opacity-50"
+                                                        >
+                                                            Add
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setAddingMealFor(null)}
+                                                            className="flex-1 py-1 bg-border-subtle text-text-secondary text-xs font-medium rounded hover:bg-border-strong"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => {
+                                                        setAddingMealFor({ date: day.toISOString().split('T')[0], type: type as any });
+                                                        setNewItemId('');
+                                                    }}
+                                                    className="w-full py-1.5 border border-dashed border-border-subtle rounded-lg text-xs text-text-tertiary hover:text-action-primary hover:border-action-primary/30 hover:bg-action-primary/5 transition-all flex items-center justify-center"
+                                                >
+                                                    <Plus className="w-3 h-3 mr-1" /> Add
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
         </div>
     );

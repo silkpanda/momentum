@@ -19,7 +19,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete }) => {
     // Assuming task comes in with status or we derive it
     const sharedTask: Task = {
         ...task,
-        status: task.status || (task.isCompleted ? 'Approved' : 'Pending'), // Fallback mapping
+        status: task.status || ((task as any).isCompleted ? 'Approved' : 'Pending'), // Fallback mapping
     };
 
     const {

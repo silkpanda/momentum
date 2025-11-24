@@ -111,7 +111,7 @@ const MealDashboard: React.FC = () => {
 
             {/* Content */}
             <div className="pt-2">
-                {activeTab === 'plans' && <MealPlanList mealPlans={mealPlans} />}
+                {activeTab === 'plans' && <MealPlanList mealPlans={mealPlans} recipes={recipes} restaurants={restaurants} />}
                 {activeTab === 'recipes' && <RecipeList recipes={recipes} />}
                 {activeTab === 'restaurants' && <RestaurantList restaurants={restaurants} />}
             </div>
