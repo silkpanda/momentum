@@ -6,7 +6,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Loader, AlertTriangle, CheckSquare, UserCheck } from 'lucide-react';
+import { Plus, Loader, AlertTriangle, CheckSquare, UserCheck, Clock } from 'lucide-react';
 import CreateTaskModal from './CreateTaskModal';
 import { useSession } from '../layout/SessionContext';
 import EditTaskModal from './EditTaskModal';
@@ -14,6 +14,7 @@ import DeleteTaskModal from './DeleteTaskModal';
 import { IHouseholdMemberProfile } from '../members/MemberList';
 import Collapsible from '../layout/CollapsibleSection';
 import TaskCard from '../shared/TaskCard';
+import { type Task } from 'momentum-shared';
 
 // --- Task Interface ---
 export interface ITask {
@@ -22,7 +23,7 @@ export interface ITask {
     description: string;
     pointsValue: number;
     isCompleted: boolean;
-    status?: 'Pending' | 'In Progress' | 'Completed' | 'Approved';
+    status?: 'Pending' | 'In Progress' | 'Completed' | 'Approved' | 'PendingApproval';
     assignedTo: {
         _id: string;
         displayName: string;
@@ -83,6 +84,34 @@ const TaskList: React.FC = () => {
         fetchData();
     }, [fetchData]);
 
+    const handleApproveTask = async (task: Task) => {
+        if (!token) return;
+        const taskId = task._id || task.id;
+        if (!taskId) {
+            setError('Task ID missing');
+            return;
+        }
+        try {
+            const response = await fetch(`/web-bff/tasks/${taskId}/approve`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.message || 'Failed to approve task');
+            }
+
+            // Refresh data
+            fetchData();
+        } catch (e: any) {
+            setError(`Failed to approve task: ${e.message}`);
+        }
+    };
+
     const handleTaskCreated = (newTask: ITask) => {
         fetchData();
     };
@@ -142,15 +171,37 @@ const TaskList: React.FC = () => {
             </div>
 
             {(() => {
-                const completedTasks = tasks.filter(t => t.isCompleted);
-                const incompleteTasks = tasks.filter(t => !t.isCompleted);
+                const pendingApprovalTasks = tasks.filter(t => t.status === 'PendingApproval');
+                const completedTasks = tasks.filter(t => t.status === 'Approved' || (t.isCompleted && t.status !== 'PendingApproval'));
+                const incompleteTasks = tasks.filter(t => !t.isCompleted && t.status !== 'PendingApproval' && t.status !== 'Approved');
+
                 const assignedIncompleteTasks = incompleteTasks.filter(
-                    t => !t.isCompleted && t.assignedTo && t.assignedTo.length > 0
+                    t => t.assignedTo && t.assignedTo.length > 0
                 );
 
                 return (
                     tasks.length > 0 ? (
                         <div className="space-y-4">
+                            {pendingApprovalTasks.length > 0 && (
+                                <Collapsible
+                                    Icon={Clock}
+                                    title="Pending Approval"
+                                    count={pendingApprovalTasks.length}
+                                    defaultOpen={true}
+                                    emptyMessage="No tasks pending approval."
+                                >
+                                    {pendingApprovalTasks.map((task) => (
+                                        <TaskCard
+                                            key={task._id}
+                                            task={task as any}
+                                            onEdit={() => openEditModal(task)}
+                                            onDelete={() => openDeleteModal(task)}
+                                            onApprove={handleApproveTask}
+                                        />
+                                    ))}
+                                </Collapsible>
+                            )}
+
                             <Collapsible
                                 Icon={UserCheck}
                                 title="Assigned (Incomplete)"

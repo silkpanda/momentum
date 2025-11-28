@@ -15,6 +15,8 @@ export async function DELETE(
     }
 
     const API_URL = `${API_BASE_URL}/meals/plans/${id}/meals/${mealId}`;
+    console.log(`[BFF] Deleting meal. PlanID: ${id}, MealID: ${mealId}`);
+    console.log(`[BFF] Target URL: ${API_URL}`);
 
     try {
         const apiResponse = await fetch(API_URL, {
@@ -29,7 +31,7 @@ export async function DELETE(
             return NextResponse.json(data, { status: apiResponse.status });
         }
 
-        return NextResponse.json({ status: 'success' }, { status: 204 });
+        return new NextResponse(null, { status: 204 });
 
     } catch (err: any) {
         return NextResponse.json({ message: 'BFF Error: Failed to remove meal from plan', error: err.message }, { status: 500 });

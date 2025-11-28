@@ -111,20 +111,22 @@ export default function ApprovalsDashboard() {
 
     const handleApproveTask = async (taskId: string) => {
         try {
-            const res = await fetch(`/web-bff/tasks/${taskId}`, {
-                method: 'PATCH',
+            const res = await fetch(`/web-bff/tasks/${taskId}/approve`, {
+                method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ status: 'Completed' }) // Or 'Approved' depending on backend logic
+                }
             });
 
-            if (!res.ok) throw new Error('Failed to approve task');
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.message || 'Failed to approve task');
+            }
             fetchData();
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            alert('Failed to approve task');
+            alert(`Failed to approve task: ${err.message}`);
         }
     };
 

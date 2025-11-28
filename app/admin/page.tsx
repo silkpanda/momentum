@@ -25,6 +25,7 @@ import ThemeSwitcher from '../components/settings/ThemeSwitcher';
 import Loading from '../components/layout/Loading';
 import ApprovalsDashboard from '../components/approvals/ApprovalsDashboard';
 import InviteCodeManager from '../components/settings/InviteCodeManager';
+import PinManagement from '../components/settings/PinManagement';
 
 type AdminTab = 'tasks' | 'store' | 'members' | 'meals' | 'approvals' | 'settings';
 
@@ -178,6 +179,7 @@ export default function AdminPage() {
                             <div className="max-w-2xl">
                                 <ThemeSwitcher />
                                 <InviteCodeManager />
+                                <PinManagement />
                             </div>
                         </div>
                     )

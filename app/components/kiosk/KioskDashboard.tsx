@@ -10,24 +10,29 @@ import { useSession } from '../layout/SessionContext';
 import { IHouseholdMemberProfile } from '../members/MemberList';
 import { ITask } from '../tasks/TaskList';
 import { IStoreItem } from '../store/StoreItemList';
-import { Loader, AlertTriangle, User, Calendar, UtensilsCrossed, ListTodo, Bell } from 'lucide-react';
+import { Loader, AlertTriangle, User, Calendar, UtensilsCrossed, ListTodo, Bell, Settings } from 'lucide-react';
 import KioskMemberProfileModal from './KioskMemberProfileModal';
+import PinVerificationModal from '../auth/PinVerificationModal';
+import { useRouter } from 'next/navigation';
 import { useSocketEvent } from '../../../lib/hooks/useSocket';
 import { SOCKET_EVENTS, TaskUpdatedEvent, MemberPointsUpdatedEvent, StoreItemUpdatedEvent, HouseholdUpdatedEvent } from '../../../lib/socket';
 
 // --- Types ---
 
-interface IMealPlan {
+// --- Types ---
+
+interface IWeeklyMealPlan {
     _id: string;
-    date: string;
+    startDate: string;
+    endDate: string;
     meals: {
-        dinner: {
-            mainDishId?: string;
-            sideDish?: string;
-            restaurantId?: string;
-            notes?: string;
-        }
-    }
+        _id: string;
+        date: string;
+        mealType: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
+        itemType: 'Recipe' | 'Restaurant' | 'Custom';
+        itemId?: { _id: string; name: string; title?: string; description?: string };
+        customTitle?: string;
+    }[];
 }
 
 interface IRecipe {
@@ -147,13 +152,13 @@ const RemindParentButton: React.FC = () => {
 // --- Main Kiosk Dashboard Component ---
 const KioskDashboard: React.FC = () => {
     console.log('[KioskDashboard] Component rendering');
-    const { token, householdId } = useSession();
-    console.log('[KioskDashboard] Session data - token:', !!token, 'householdId:', householdId);
+    const { token, householdId, user } = useSession();
+    console.log('[KioskDashboard] Session data - token:', !!token, 'householdId:', householdId, 'user:', user);
 
     const [members, setMembers] = useState<IHouseholdMemberProfile[]>([]);
     const [tasks, setTasks] = useState<ITask[]>([]);
     const [storeItems, setStoreItems] = useState<IStoreItem[]>([]);
-    const [mealPlans, setMealPlans] = useState<IMealPlan[]>([]);
+    const [mealPlans, setMealPlans] = useState<IWeeklyMealPlan[]>([]);
     const [recipes, setRecipes] = useState<IRecipe[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -161,6 +166,11 @@ const KioskDashboard: React.FC = () => {
     // Modal state
     const [selectedMember, setSelectedMember] = useState<IHouseholdMemberProfile | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    // --- Parent Dashboard Navigation ---
+    const router = useRouter();
+    const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+    const [parentMemberId, setParentMemberId] = useState<string>('');
 
     const fetchData = useCallback(async () => {
         console.log('[KioskDashboard] fetchData called');
@@ -300,19 +310,34 @@ const KioskDashboard: React.FC = () => {
     // --- Helpers for Meal Display ---
     const getTodaysMeal = () => {
         const today = new Date().toISOString().split('T')[0];
-        const todaysPlan = mealPlans.find(p => p.date.startsWith(today));
 
-        if (todaysPlan) {
-            if (todaysPlan.meals.dinner.restaurantId) {
+        // Find the meal for today in any of the weekly plans
+        let todaysDinner: any = null;
+
+        for (const plan of mealPlans) {
+            const meal = plan.meals.find(m =>
+                m.date.startsWith(today) && m.mealType === 'Dinner'
+            );
+            if (meal) {
+                todaysDinner = meal;
+                break;
+            }
+        }
+
+        if (todaysDinner) {
+            if (todaysDinner.itemType === 'Restaurant') {
                 return {
-                    title: 'Eating Out',
+                    title: todaysDinner.itemId?.name || 'Eating Out',
                     description: 'Restaurant Night!'
                 };
             }
-            const mainDish = recipes.find(r => r._id === todaysPlan.meals.dinner.mainDishId);
+
+            const recipeName = todaysDinner.itemId?.title || todaysDinner.itemId?.name || todaysDinner.customTitle || 'Dinner';
+            const recipeDesc = todaysDinner.itemId?.description || 'Delicious meal';
+
             return {
-                title: mainDish ? mainDish.name : 'Dinner',
-                description: todaysPlan.meals.dinner.sideDish || (mainDish?.description) || 'Delicious meal'
+                title: recipeName,
+                description: recipeDesc
             };
         }
 
@@ -357,16 +382,80 @@ const KioskDashboard: React.FC = () => {
     const totalPendingTasks = tasks.filter(t => !t.isCompleted).length;
     const totalCompletedTasks = tasks.filter(t => t.isCompleted).length;
 
+
+
+    const handleParentDashboardClick = () => {
+        // Prioritize the current logged-in user if they are a parent
+        // The user object from useSession contains the familyMemberId (as _id)
+        // We need to find the corresponding profile in the members list to get the correct ID if needed,
+        // but verifyPin expects memberId (which is the profile ID in household.memberProfiles).
+
+        // Wait, user._id from session is usually the FamilyMember ID, not the HouseholdMemberProfile ID?
+        // Let's check how user is populated in SessionProvider. 
+        // Assuming user._id matches one of the member's familyMemberId or _id.
+        // Actually, let's look at the members list. It contains _id (profile ID) and familyMemberId (user ID).
+
+        let targetMemberId = '';
+
+        // Try to find the current user in the members list
+        // We don't have user object here yet, let's get it from useSession
+
+        if (user && user.role === 'Parent') {
+            // Find the member profile that corresponds to this user
+            // We assume user._id is the FamilyMember ID.
+            // But wait, the session user might be the profile ID? 
+            // Let's assume for now we search by role 'Parent' and if multiple, we pick the one that matches user._id if possible.
+            // Actually, let's just pick the first parent for now, BUT if the user is a parent, we should try to match them.
+
+            // Since we don't have the user object destructured yet, let's add it.
+            const currentUserProfile = members.find(m => m.familyMemberId._id === user._id || m._id === user._id);
+            if (currentUserProfile && currentUserProfile.role === 'Parent') {
+                targetMemberId = currentUserProfile._id;
+            }
+        }
+
+        if (!targetMemberId) {
+            // Fallback: Pick the first parent found
+            const parent = members.find(m => m.role === 'Parent');
+            if (parent) {
+                targetMemberId = parent._id;
+            }
+        }
+
+        if (targetMemberId) {
+            setParentMemberId(targetMemberId);
+            setIsPinModalOpen(true);
+        } else {
+            setError('No parent profile found to verify against.');
+        }
+    };
+
+    const handlePinSuccess = () => {
+        router.push('/admin');
+    };
+
     return (
-        <div className="space-y-8 pb-24">
-            {/* Page Title */}
-            <div className="text-center mb-8">
-                <h1 className="text-4xl font-bold text-text-primary mb-2">
-                    Welcome to Your Family Dashboard
-                </h1>
-                <p className="text-lg text-text-secondary">
-                    Tap a family member to view their tasks and rewards
-                </p>
+        <div className="space-y-8 pb-24 relative">
+            {/* Page Title & Header Actions */}
+            <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
+                <div className="text-center md:text-left">
+                    <h1 className="text-4xl font-bold text-text-primary mb-2">
+                        Welcome to Your Family Dashboard
+                    </h1>
+                    <p className="text-lg text-text-secondary">
+                        Tap a family member to view their tasks and rewards
+                    </p>
+                </div>
+
+                <button
+                    onClick={handleParentDashboardClick}
+                    className="flex items-center gap-2 px-6 py-3 bg-bg-surface border border-border-subtle rounded-xl 
+                               text-text-secondary hover:text-action-primary hover:border-action-primary 
+                               transition-all shadow-sm hover:shadow-md"
+                >
+                    <Settings className="w-5 h-5" />
+                    <span className="font-medium">Parent Dashboard</span>
+                </button>
             </div>
 
             {/* Family Member Grid */}
@@ -454,6 +543,17 @@ const KioskDashboard: React.FC = () => {
                     />
                 )
             }
+
+            {/* PIN Verification Modal */}
+            <PinVerificationModal
+                isOpen={isPinModalOpen}
+                onClose={() => setIsPinModalOpen(false)}
+                onSuccess={handlePinSuccess}
+                title="Parent Access"
+                description="Enter your PIN to access the Parent Dashboard."
+                memberId={parentMemberId}
+                householdId={householdId || ''}
+            />
         </div>
     );
 };

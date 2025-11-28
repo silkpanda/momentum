@@ -5,14 +5,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, Search, ChefHat, Clock, Users, Pencil } from 'lucide-react';
+import { Plus, Search, ChefHat, Clock, Users, Pencil, Trash2 } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
 import CreateRecipeModal from './CreateRecipeModal';
 import EditRecipeModal from './EditRecipeModal';
 
 export interface IRecipe {
     _id: string;
-    title: string;
+    name: string;
     description?: string;
     ingredients: string[];
     instructions: string[];
@@ -27,7 +27,7 @@ interface RecipeListProps {
 }
 
 const RecipeList: React.FC<RecipeListProps> = ({ recipes: initialRecipes }) => {
-    const { user } = useSession();
+    const { user, token } = useSession();
     const [recipes, setRecipes] = useState<IRecipe[]>(initialRecipes);
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -39,6 +39,29 @@ const RecipeList: React.FC<RecipeListProps> = ({ recipes: initialRecipes }) => {
 
     const handleRecipeUpdated = (updatedRecipe: IRecipe) => {
         setRecipes(recipes.map(r => r._id === updatedRecipe._id ? updatedRecipe : r));
+    };
+
+    const handleDeleteRecipe = async (recipeId: string) => {
+        if (!confirm('Are you sure you want to delete this recipe? This action cannot be undone.')) return;
+
+        try {
+            const response = await fetch(`/web-bff/meals/recipes/${recipeId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.message || 'Failed to delete recipe');
+            }
+
+            setRecipes(recipes.filter(r => r._id !== recipeId));
+        } catch (err: any) {
+            console.error("Failed to delete recipe:", err);
+            alert(err.message || "Failed to delete recipe");
+        }
     };
 
     return (
@@ -80,16 +103,25 @@ const RecipeList: React.FC<RecipeListProps> = ({ recipes: initialRecipes }) => {
                                     <ChefHat className="w-5 h-5" />
                                 </div>
                                 {user?.role === 'Parent' && (
-                                    <button
-                                        onClick={() => setEditingRecipe(recipe)}
-                                        className="p-1.5 text-text-tertiary hover:text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                                        title="Edit Recipe"
-                                    >
-                                        <Pencil className="w-4 h-4" />
-                                    </button>
+                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={() => setEditingRecipe(recipe)}
+                                            className="p-1.5 text-text-tertiary hover:text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-colors"
+                                            title="Edit Recipe"
+                                        >
+                                            <Pencil className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteRecipe(recipe._id)}
+                                            className="p-1.5 text-text-tertiary hover:text-signal-alert hover:bg-signal-alert/10 rounded-lg transition-colors"
+                                            title="Delete Recipe"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 )}
                             </div>
-                            <h3 className="font-medium text-text-primary mb-1">{recipe.title}</h3>
+                            <h3 className="font-medium text-text-primary mb-1">{recipe.name}</h3>
                             <p className="text-sm text-text-secondary line-clamp-2 mb-3">{recipe.description || "No description."}</p>
 
                             <div className="flex items-center space-x-4 text-xs text-text-tertiary">

@@ -53,35 +53,92 @@ const EditMealPlanModal: React.FC<EditMealPlanModalProps> = ({ mealPlan, recipes
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleUpdateDates = async (e: React.FormEvent) => {
-        e.preventDefault();
-        // ... (Date update logic - same as before, but maybe we don't need a separate submit for dates if we just auto-save or have a global save? 
-        // For now, let's keep date updating separate or just update the plan container)
+    // Keep track of original meals to calculate diffs on save
+    const [originalMeals] = useState(mealPlan.meals || []);
 
-        if (!formData.startDate || !formData.endDate) {
-            setError('Please select both start and end dates.');
-            return;
-        }
-
+    const handleSaveChanges = async () => {
         setIsLoading(true);
+        setError(null);
+
         try {
-            const response = await fetch(`/web-bff/meals/plans/${mealPlan._id}`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    startDate: formData.startDate,
-                    endDate: formData.endDate,
-                }),
+            // 1. Update Dates if changed
+            if (formData.startDate !== mealPlan.startDate.split('T')[0] ||
+                formData.endDate !== mealPlan.endDate.split('T')[0]) {
+
+                const response = await fetch(`/web-bff/meals/plans/${mealPlan._id}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        startDate: formData.startDate,
+                        endDate: formData.endDate,
+                    }),
+                });
+                if (!response.ok) throw new Error('Failed to update dates');
+            }
+
+            // 2. Handle Added Meals
+            const addedMeals = localMeals.filter(m => m._id.startsWith('temp_'));
+            const tempIdToRealMeal: Record<string, any> = {};
+
+            for (const meal of addedMeals) {
+                const response = await fetch(`/web-bff/meals/plans/${mealPlan._id}/meals`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        date: meal.date,
+                        mealType: meal.mealType,
+                        itemType: meal.itemType,
+                        itemId: meal.itemId?._id
+                    }),
+                });
+                if (!response.ok) throw new Error('Failed to save new meals');
+
+                const data = await response.json();
+                tempIdToRealMeal[meal._id] = data.data.meal;
+            }
+
+            // 3. Handle Removed Meals
+            console.log('[EditMealPlanModal] Calculating removed meals...');
+            console.log('[EditMealPlanModal] Original Meals:', originalMeals);
+            console.log('[EditMealPlanModal] Local Meals:', localMeals);
+
+            const removedMeals = originalMeals.filter(om => !localMeals.find(lm => lm._id === om._id));
+            console.log('[EditMealPlanModal] Removed Meals to delete:', removedMeals);
+
+            for (const meal of removedMeals) {
+                // Skip deleting temp meals that were never saved
+                if (meal._id.startsWith('temp_')) continue;
+
+                console.log(`[EditMealPlanModal] Deleting meal: ${meal._id}`);
+                const response = await fetch(`/web-bff/meals/plans/${mealPlan._id}/meals/${meal._id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error(`[EditMealPlanModal] Failed to delete meal ${meal._id}`, errorText);
+                    throw new Error(`Failed to remove deleted meals: ${errorText}`);
+                }
+            }
+
+            // Construct final meals list with real IDs
+            const finalMeals = localMeals.map(m => tempIdToRealMeal[m._id] || m);
+
+            // Success! Refresh parent and close
+            onMealPlanUpdated({
+                ...mealPlan,
+                startDate: formData.startDate,
+                endDate: formData.endDate,
+                meals: finalMeals
             });
+            onClose();
 
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to update meal plan');
-
-            onMealPlanUpdated({ ...data.data.mealPlan, meals: localMeals }); // Preserve local meals state
-            // Don't close, just notify success?
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -89,63 +146,32 @@ const EditMealPlanModal: React.FC<EditMealPlanModalProps> = ({ mealPlan, recipes
         }
     };
 
-    const handleAddMeal = async () => {
+    const handleAddMeal = () => {
         if (!addingMealFor || !newItemId) return;
 
-        setIsLoading(true);
-        try {
-            const response = await fetch(`/web-bff/meals/plans/${mealPlan._id}/meals`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    date: addingMealFor.date,
-                    mealType: addingMealFor.type,
-                    itemType: newItemType,
-                    itemId: newItemId
-                }),
-            });
-
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to add meal');
-
-            // Add to local state
-            setLocalMeals([...localMeals, data.data.meal]);
-            setAddingMealFor(null);
-            setNewItemId('');
-
-            // Update parent list
-            onMealPlanUpdated({ ...mealPlan, meals: [...localMeals, data.data.meal] });
-
-        } catch (err: any) {
-            setError(err.message);
-        } finally {
-            setIsLoading(false);
+        let selectedItem: any;
+        if (newItemType === 'Recipe') {
+            selectedItem = recipes.find(r => r._id === newItemId);
+        } else {
+            selectedItem = restaurants.find(r => r._id === newItemId);
         }
+
+        const newMeal = {
+            _id: `temp_${Date.now()}`,
+            date: addingMealFor.date,
+            mealType: addingMealFor.type,
+            itemType: newItemType,
+            itemId: selectedItem ? { _id: selectedItem._id, name: selectedItem.name || selectedItem.title, title: selectedItem.title || selectedItem.name } : undefined,
+            customTitle: undefined
+        };
+
+        setLocalMeals([...localMeals, newMeal as any]);
+        setAddingMealFor(null);
+        setNewItemId('');
     };
 
-    const handleRemoveMeal = async (mealId: string) => {
-        if (!confirm('Are you sure you want to remove this meal?')) return;
-        setIsLoading(true);
-        try {
-            const response = await fetch(`/web-bff/meals/plans/${mealPlan._id}/meals/${mealId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
-
-            if (!response.ok) throw new Error('Failed to remove meal');
-
-            const updatedMeals = localMeals.filter(m => m._id !== mealId);
-            setLocalMeals(updatedMeals);
-            onMealPlanUpdated({ ...mealPlan, meals: updatedMeals });
-
-        } catch (err: any) {
-            setError(err.message);
-        } finally {
-            setIsLoading(false);
-        }
+    const handleRemoveMeal = (mealId: string) => {
+        setLocalMeals(localMeals.filter(m => m._id !== mealId));
     };
 
     const getMealsForDayAndType = (date: Date, type: string) => {
@@ -173,7 +199,7 @@ const EditMealPlanModal: React.FC<EditMealPlanModalProps> = ({ mealPlan, recipes
 
                 <div className="flex-1 overflow-y-auto p-6">
                     {/* Date Range Form */}
-                    <form onSubmit={handleUpdateDates} className="flex space-x-4 items-end mb-8 bg-bg-canvas p-4 rounded-lg border border-border-subtle">
+                    <div className="flex space-x-4 items-end mb-8 bg-bg-canvas p-4 rounded-lg border border-border-subtle">
                         <div className="flex-1">
                             <label className="block text-sm font-medium text-text-secondary mb-1">Start Date</label>
                             <input
@@ -194,14 +220,7 @@ const EditMealPlanModal: React.FC<EditMealPlanModalProps> = ({ mealPlan, recipes
                                 className="w-full p-2 rounded-lg border border-border-subtle bg-bg-surface text-text-primary text-sm"
                             />
                         </div>
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="px-4 py-2 bg-text-secondary/10 text-text-primary rounded-lg hover:bg-text-secondary/20 transition-colors text-sm font-medium"
-                        >
-                            Update Dates
-                        </button>
-                    </form>
+                    </div>
 
                     {error && (
                         <div className="mb-6 flex items-center text-sm text-signal-alert bg-signal-alert/10 p-3 rounded-lg">
@@ -304,6 +323,23 @@ const EditMealPlanModal: React.FC<EditMealPlanModalProps> = ({ mealPlan, recipes
                             </div>
                         ))}
                     </div>
+                </div>
+
+                {/* Footer */}
+                <div className="p-6 border-t border-border-subtle flex justify-end space-x-3 bg-bg-surface rounded-b-xl">
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 text-text-secondary hover:bg-bg-canvas rounded-lg transition-colors font-medium"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleSaveChanges}
+                        disabled={isLoading}
+                        className="px-6 py-2 bg-action-primary text-white rounded-lg hover:bg-action-hover shadow-sm transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isLoading ? <Loader className="w-5 h-5 animate-spin" /> : 'Save Changes'}
+                    </button>
                 </div>
             </div>
         </div>

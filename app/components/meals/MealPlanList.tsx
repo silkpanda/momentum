@@ -5,7 +5,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, Calendar, Search, Pencil } from 'lucide-react';
+import { Plus, Calendar, Search, Pencil, Trash } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
 import CreateMealPlanModal from './CreateMealPlanModal';
 import EditMealPlanModal from './EditMealPlanModal';
@@ -33,7 +33,7 @@ interface MealPlanListProps {
 }
 
 const MealPlanList: React.FC<MealPlanListProps> = ({ mealPlans: initialMealPlans, recipes, restaurants }) => {
-    const { user } = useSession();
+    const { user, token } = useSession();
     const [mealPlans, setMealPlans] = useState<IMealPlan[]>(initialMealPlans);
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -45,6 +45,29 @@ const MealPlanList: React.FC<MealPlanListProps> = ({ mealPlans: initialMealPlans
 
     const handleMealPlanUpdated = (updatedPlan: IMealPlan) => {
         setMealPlans(mealPlans.map(p => p._id === updatedPlan._id ? updatedPlan : p));
+    };
+
+    const handleDeleteMealPlan = async (planId: string) => {
+        if (!window.confirm('Are you sure you want to delete this meal plan?')) return;
+
+        try {
+            const response = await fetch(`/web-bff/meals/plans/${planId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.message || 'Failed to delete meal plan');
+            }
+
+            setMealPlans(mealPlans.filter(p => p._id !== planId));
+        } catch (err) {
+            console.error('Error deleting meal plan:', err);
+            alert('Failed to delete meal plan');
+        }
     };
 
     return (
@@ -106,6 +129,13 @@ const MealPlanList: React.FC<MealPlanListProps> = ({ mealPlans: initialMealPlans
                                             title="Edit Plan"
                                         >
                                             <Pencil className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteMealPlan(plan._id)}
+                                            className="p-2 text-text-tertiary hover:text-signal-alert hover:bg-signal-alert/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                            title="Delete Plan"
+                                        >
+                                            <Trash className="w-4 h-4" />
                                         </button>
                                     </>
                                 )}

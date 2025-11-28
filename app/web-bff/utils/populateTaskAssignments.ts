@@ -43,6 +43,7 @@ interface PopulatedAssignment {
 
 interface PopulatedTask extends Omit<Task, 'assignedTo'> {
     assignedTo: PopulatedAssignment[];
+    isCompleted: boolean;
 }
 
 /**
@@ -113,10 +114,11 @@ export function populateTaskAssignments(
             })
             .filter((assignment): assignment is NonNullable<typeof assignment> => assignment !== null);
 
-        // Return the task with populated assignedTo
+        // Return the task with populated assignedTo and derived isCompleted
         return {
             ...task,
-            assignedTo: populatedAssignedTo
+            assignedTo: populatedAssignedTo,
+            isCompleted: task.status === 'Approved' || task.status === 'PendingApproval'
         } as PopulatedTask;
     });
 

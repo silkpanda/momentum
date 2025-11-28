@@ -1,14 +1,8 @@
-// =========================================================
-// silkpanda/momentum/app/web-bff/meals/recipes/[id]/route.ts
-// EMBEDDED WEB BFF
-// Handle individual recipe operations (Update)
-// =========================================================
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
-
 import { API_BASE_URL } from '@/lib/config';
 
-const RECIPES_URL = `${API_BASE_URL}/meals/recipes`;
+const WISHLIST_API_URL = `${API_BASE_URL}/wishlist`;
 
 export async function PUT(
     request: Request,
@@ -25,10 +19,7 @@ export async function PUT(
         const body = await request.json();
         const { id } = params;
 
-        console.log(`[BFF] Updating recipe ${id}...`);
-        console.log(`[BFF] Payload:`, body);
-
-        const response = await fetch(`${RECIPES_URL}/${id}`, {
+        const response = await fetch(`${WISHLIST_API_URL}/${id}`, {
             method: 'PUT',
             headers: {
                 'Authorization': authorization,
@@ -38,17 +29,14 @@ export async function PUT(
         });
 
         const data = await response.json();
-        console.log(`[BFF] Update response status: ${response.status}`);
 
         if (!response.ok) {
-            console.error(`[BFF] Update failed:`, data);
-            return NextResponse.json({ message: data.message || 'Failed to update recipe', details: data }, { status: response.status });
+            return NextResponse.json({ message: data.message || 'Failed to update wishlist item' }, { status: response.status });
         }
 
         return NextResponse.json(data);
 
     } catch (error: any) {
-        console.error(`[BFF] Internal Error:`, error);
         return NextResponse.json({ message: 'Internal Server Error', error: error.message }, { status: 500 });
     }
 }
@@ -66,9 +54,8 @@ export async function DELETE(
 
     try {
         const { id } = params;
-        console.log(`[BFF] Deleting recipe ${id}...`);
 
-        const response = await fetch(`${RECIPES_URL}/${id}`, {
+        const response = await fetch(`${WISHLIST_API_URL}/${id}`, {
             method: 'DELETE',
             headers: {
                 'Authorization': authorization,
@@ -76,15 +63,13 @@ export async function DELETE(
         });
 
         if (!response.ok) {
-            const data = await response.json();
-            console.error(`[BFF] Delete failed:`, data);
-            return NextResponse.json({ message: data.message || 'Failed to delete recipe' }, { status: response.status });
+            const data = await response.json().catch(() => ({}));
+            return NextResponse.json({ message: data.message || 'Failed to delete wishlist item' }, { status: response.status });
         }
 
         return new NextResponse(null, { status: 204 });
 
     } catch (error: any) {
-        console.error(`[BFF] Internal Error:`, error);
         return NextResponse.json({ message: 'Internal Server Error', error: error.message }, { status: 500 });
     }
 }

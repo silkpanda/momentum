@@ -75,6 +75,7 @@ export async function GET() {
         // 6. Aggregate and return the combined data
         return NextResponse.json({
             memberProfiles: memberProfiles,
+            currentUser: meData.data.user, // Pass current user data (includes pinSetupCompleted)
             tasks: Array.isArray(populatedTasks) ? populatedTasks : [populatedTasks],
             storeItems: storeData.data.storeItems || [],
             mealPlans: mealPlansData.data.mealPlans || [],

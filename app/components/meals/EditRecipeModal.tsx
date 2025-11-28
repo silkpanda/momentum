@@ -21,7 +21,7 @@ const EditRecipeModal: React.FC<EditRecipeModalProps> = ({ recipe, onClose, onRe
     const [error, setError] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
-        title: recipe.title,
+        name: recipe.name,
         description: recipe.description || '',
         prepTime: recipe.prepTime || 0,
         cookTime: recipe.cookTime || 0,
@@ -57,8 +57,8 @@ const EditRecipeModal: React.FC<EditRecipeModalProps> = ({ recipe, onClose, onRe
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.title || formData.ingredients.some(i => !i.trim())) {
-            setError('Please provide a title and valid ingredients.');
+        if (!formData.name || formData.ingredients.some(i => !i.trim())) {
+            setError('Please provide a name and valid ingredients.');
             return;
         }
 
@@ -67,7 +67,7 @@ const EditRecipeModal: React.FC<EditRecipeModalProps> = ({ recipe, onClose, onRe
 
         try {
             const response = await fetch(`/web-bff/meals/recipes/${recipe._id}`, {
-                method: 'PATCH',
+                method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
@@ -104,13 +104,13 @@ const EditRecipeModal: React.FC<EditRecipeModalProps> = ({ recipe, onClose, onRe
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Title */}
+                        {/* Name */}
                         <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-text-secondary mb-1">Recipe Title</label>
+                            <label className="block text-sm font-medium text-text-secondary mb-1">Recipe Name</label>
                             <input
                                 type="text"
-                                name="title"
-                                value={formData.title}
+                                name="name"
+                                value={formData.name}
                                 onChange={handleChange}
                                 placeholder="e.g., Mom's Spaghetti"
                                 className="w-full p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"

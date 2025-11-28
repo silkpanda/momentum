@@ -14,7 +14,7 @@ import MemberAvatar from './MemberAvatar';
 // The shared Task has: _id, title, description, pointsValue, status, assignedTo
 // We might need to map isCompleted to status for the shared logic to work.
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete }) => {
+const TaskCard: React.FC<TaskCardProps & { onApprove?: (task: Task) => void }> = ({ task, onEdit, onDelete, onApprove }) => {
     // Map web task to shared task structure if necessary
     // Assuming task comes in with status or we derive it
     const sharedTask: Task = {
@@ -75,9 +75,19 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, onDelete }) => {
                 )}
 
                 {isPendingApproval && (
-                    <div className="flex items-center text-signal-warning">
-                        <Clock className="w-4 h-4 mr-1" />
-                        <span className="text-sm font-medium">{statusLabel}</span>
+                    <div className="flex items-center space-x-2">
+                        <div className="flex items-center text-signal-warning">
+                            <Clock className="w-4 h-4 mr-1" />
+                            <span className="text-sm font-medium">{statusLabel}</span>
+                        </div>
+                        {onApprove && (
+                            <button
+                                onClick={() => onApprove(task)}
+                                className="px-3 py-1 bg-signal-success text-white text-sm rounded hover:bg-signal-success/90 transition-colors"
+                            >
+                                Approve
+                            </button>
+                        )}
                     </div>
                 )}
 
