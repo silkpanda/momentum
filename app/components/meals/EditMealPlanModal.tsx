@@ -7,9 +7,7 @@
 import React, { useState, useMemo } from 'react';
 import { X, Calendar, Loader, AlertTriangle, Check, Plus, Trash2, Utensils } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
-import { IMealPlan } from './MealPlanList';
-import { IRecipe } from './RecipeList';
-import { IRestaurant } from './RestaurantList';
+import { IMealPlan, IRecipe, IRestaurant } from '../../types';
 
 interface EditMealPlanModalProps {
     mealPlan: IMealPlan;

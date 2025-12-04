@@ -1,11 +1,8 @@
 // =========================================================
 // silkpanda/momentum-web/app/page.tsx
 // Landing Page (Public Route)
-// =========================================================--
+// =========================================================
 import Link from 'next/link';
-// Assuming a standard icon library setup (e.g., Lucide)
-// Placeholder for Lucide imports until the specific library is installed
-// import { User, LogIn, HeartHandshake } from 'lucide-react'; 
 
 /**
  * @fileoverview Landing page component to direct users to Auth endpoints.
@@ -17,15 +14,13 @@ export default function Page() {
   const LandingNavbar = () => (
     <nav className="flex justify-between items-center h-16 px-6 bg-bg-surface border-b border-border-subtle shadow-sm">
       <div className="text-xl font-semibold text-text-primary">
-        Momentum
+        ⚡ Momentum
       </div>
       <div className="flex space-x-4">
-        {/* Secondary Button: Login (Source: Style Guide, 5. Component Design, 3. Secondary Button) */}
+        {/* Secondary Button: Login */}
         <Link href="/login"
           className="text-text-primary hover:text-action-primary font-medium p-2 transition-colors flex items-center"
         >
-          {/* - Mandatory icon paired with text label [cite: 69] */}
-          {/* Placeholder for Lucide LogIn */}
           <span className="mr-1">🔑</span>
           Login
         </Link>
@@ -54,23 +49,22 @@ export default function Page() {
 
   // --- Main Content ---
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-bg-canvas">
       <LandingNavbar />
 
       <main className="flex-1 flex flex-col items-center justify-center text-center p-8">
 
-        {/* Application Logo/Icon - Placeholder for now */}
-        {/* */}
-        <div className="text-signal-success mb-6" style={{ fontSize: '4rem' }}>
+        {/* Application Logo/Icon */}
+        <div className="mb-6" style={{ fontSize: '4rem' }}>
           <span className="text-action-primary">✨</span>
         </div>
 
-        {/* H1 - Screen Title (Source: Style Guide, 2. Typography, Screen Title (H1)) */}
+        {/* H1 - Screen Title */}
         <h1 className="text-4xl sm:text-5xl font-semibold text-text-primary max-w-4xl mb-4 leading-tight font-inter">
           The calm, focused way to manage family tasks and rewards.
         </h1>
 
-        {/* Body / Description (Source: Style Guide, 2. Typography, Body / Descriptions (Body-Small) */}
+        {/* Body / Description */}
         <p className="text-lg text-text-secondary max-w-2xl mb-10 font-normal">
           Momentum helps every family member focus on what matters. Parents get a clear dashboard, and kids get a fun, frictionless way to complete tasks and earn points.
         </p>

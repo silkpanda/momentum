@@ -1,5 +1,4 @@
-import { ITask } from './TaskList';
-import { IHouseholdMemberProfile } from '../members/MemberList';
+import { ITask, IHouseholdMemberProfile } from '../../types';
 
 /**
  * Manually populates the assignedTo field of a task with member details.

@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import { X, Utensils, MapPin, Phone, Globe, DollarSign, Loader, AlertTriangle, Check } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
-import { IRestaurant } from './RestaurantList';
+import { IRestaurant } from '../../types';
 
 interface CreateRestaurantModalProps {
     onClose: () => void;

@@ -14,30 +14,10 @@ import { useSession } from '../layout/SessionContext';
 import AddMemberModal from './AddMemberModal';
 import EditMemberModal from './EditMemberModal';
 import DeleteMemberModal from './DeleteMemberModal';
-import { ITask } from '../tasks/TaskList'; // <-- NEW IMPORT
-import MemberProfileModal from './MemberProfileModal'; // <-- NEW IMPORT
-import CollapsibleSection from '../layout/CollapsibleSection'; // TELA CODICIS: Import component
-
-// --- Interfaces ---
-//
-export interface IHouseholdMemberProfile {
-    _id: string; // This is the sub-document ID
-    familyMemberId: {
-        _id: string;
-        firstName: string;
-        email?: string; // Populated for parents
-    };
-    displayName: string;
-    role: 'Parent' | 'Child';
-    profileColor?: string; // Optional: only for children
-    pointsTotal: number;
-}
-
-export interface IHousehold {
-    _id: string;
-    householdName: string;
-    memberProfiles: IHouseholdMemberProfile[]; // Use the new unified array
-}
+import { ITask } from '../../types'; // <-- UPDATED IMPORT
+import MemberProfileModal from './MemberProfileModal';
+import CollapsibleSection from '../layout/CollapsibleSection';
+import { IHouseholdMemberProfile } from '../../types'; // <-- UPDATED IMPORT
 
 // --- Unified Member Item Component ---
 const MemberItem: React.FC<{
@@ -45,7 +25,7 @@ const MemberItem: React.FC<{
     isSelf: boolean;
     onEdit: () => void;
     onDelete: () => void;
-    onOpenProfile: () => void; // <-- NEW PROP
+    onOpenProfile: () => void;
     assignedTaskCount: number;
 }> = ({ member, isSelf, onEdit, onDelete, onOpenProfile, assignedTaskCount }) => (
     <li className="flex items-center justify-between p-4 bg-bg-surface rounded-lg shadow border border-border-subtle">
@@ -104,25 +84,22 @@ const MemberItem: React.FC<{
     </li>
 );
 
-// TELA CODICIS: Removed local CollapsibleMemberSection
-// component definition. Now importing from /layout.
-
 // --- Main Member List Component ---
 const MemberList: React.FC = () => {
     // State now holds the single, unified array from the API
     const [memberProfiles, setMemberProfiles] = useState<IHouseholdMemberProfile[]>([]);
-    const [tasks, setTasks] = useState<ITask[]>([]); // <-- NEW STATE
+    const [tasks, setTasks] = useState<ITask[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false); // <-- NEW STATE
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [selectedMember, setSelectedMember] = useState<IHouseholdMemberProfile | null>(null); // Use new interface
+    const [selectedMember, setSelectedMember] = useState<IHouseholdMemberProfile | null>(null);
 
     // Use the session context to get the householdId and token
-    const { user, householdId, token } = useSession(); // Get logged-in user
+    const { user, householdId, token } = useSession();
 
     // Updated to fetch all required data
     const fetchData = useCallback(async () => {
@@ -153,7 +130,6 @@ const MemberList: React.FC = () => {
             setError(null);
 
         } catch (e: any) {
-            // FIX: Use a better error message for the user if the underlying cause is API failure
             setError(`Failed to load family members or tasks: ${e.message}`);
         } finally {
             setLoading(false);
@@ -165,16 +141,15 @@ const MemberList: React.FC = () => {
     }, [fetchData]);
 
     const handleMemberAdded = (newProfile: IHouseholdMemberProfile) => {
-        // Add to state directly to avoid re-fetch
         setMemberProfiles(current => [...current, newProfile]);
     };
 
     const handleMemberUpdated = (updatedProfile: IHouseholdMemberProfile) => {
-        setMemberProfiles(current => current.map(m => m._id === updatedProfile._id ? updatedProfile : m)); // TELA CODICIS: Optimistic update
+        setMemberProfiles(current => current.map(m => m._id === updatedProfile._id ? updatedProfile : m));
     };
 
     const handleMemberDeleted = () => {
-        setMemberProfiles(current => current.filter(m => m._id !== selectedMember?._id)); // TELA CODICIS: Optimistic update
+        setMemberProfiles(current => current.filter(m => m._id !== selectedMember?._id));
     };
 
     // Click Handlers for opening modals

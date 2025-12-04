@@ -9,10 +9,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { User, Loader, X, AlertTriangle, Check, Palette, UserPlus } from 'lucide-react';
+import { User, Loader, AlertTriangle, Check, UserPlus } from 'lucide-react'; // Removed X
 import { useSession } from '../layout/SessionContext';
-import { IHouseholdMemberProfile } from './MemberList';
+import { IHouseholdMemberProfile } from '../../types';
 import { PROFILE_COLORS } from '../../lib/constants';
+import Modal from '../shared/Modal';
 
 interface AddMemberModalProps {
     householdId: string;
@@ -90,127 +91,109 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
     };
 
     return (
-        // Modal Backdrop
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-            onClick={onClose}
-        >
-            {/* Modal Content */}
-            <div
-                className="relative w-full max-w-md p-6 bg-bg-surface rounded-xl shadow-xl border border-border-subtle"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <button
-                    onClick={onClose}
-                    className="absolute top-4 right-4 p-1 rounded-full text-text-secondary hover:bg-border-subtle"
-                >
-                    <X className="w-5 h-5" />
-                </button>
+        <Modal isOpen={true} onClose={onClose} title="Add New Family Member" maxWidth="max-w-md">
+            <form onSubmit={handleSubmit} className="flex flex-col space-y-4">
+                <p className="text-sm text-text-secondary pb-2">
+                    Create a new profile for your family team.
+                </p>
 
-                <form onSubmit={handleSubmit} className="flex flex-col space-y-4">
-                    <h3 className="text-xl font-medium text-text-primary">Add New Family Member</h3>
-                    <p className="text-sm text-text-secondary pb-2">
-                        Create a new profile for your family team.
-                    </p>
+                {/* First Name Input */}
+                <div className="space-y-1">
+                    <label htmlFor="firstName" className="block text-sm font-medium text-text-secondary">
+                        Name (Login & Display Name)
+                    </label>
+                    <div className="relative rounded-md shadow-sm">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <User className="h-5 w-5 text-text-secondary" />
+                        </div>
+                        <input
+                            id="firstName"
+                            name="firstName"
+                            type="text"
+                            value={firstName}
+                            onChange={(e) => {
+                                setFirstName(e.target.value);
+                                if (error) setError(null);
+                            }}
+                            placeholder="e.g., 'Alex'"
+                            className="block w-full rounded-md border border-border-subtle p-3 pl-10 text-text-primary bg-bg-surface"
+                        />
+                    </div>
+                </div>
 
-                    {/* First Name Input */}
-                    <div className="space-y-1">
-                        <label htmlFor="firstName" className="block text-sm font-medium text-text-secondary">
-                            Name (Login & Display Name)
-                        </label>
-                        <div className="relative rounded-md shadow-sm">
-                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                <User className="h-5 w-5 text-text-secondary" />
-                            </div>
+                {/* Role Selector */}
+                <div className="space-y-1">
+                    <label className="block text-sm font-medium text-text-secondary">
+                        Role
+                    </label>
+                    <div className="flex space-x-4">
+                        <label className="flex items-center space-x-2 cursor-pointer">
                             <input
-                                id="firstName"
-                                name="firstName"
-                                type="text"
-                                value={firstName}
-                                onChange={(e) => {
-                                    setFirstName(e.target.value);
-                                    if (error) setError(null);
-                                }}
-                                placeholder="e.g., 'Alex'"
-                                className="block w-full rounded-md border border-border-subtle p-3 pl-10 text-text-primary bg-bg-surface"
+                                type="radio"
+                                name="role"
+                                value="Child"
+                                checked={role === 'Child'}
+                                onChange={() => setRole('Child')}
+                                className="text-action-primary focus:ring-action-primary"
                             />
-                        </div>
-                    </div>
-
-                    {/* Role Selector */}
-                    <div className="space-y-1">
-                        <label className="block text-sm font-medium text-text-secondary">
-                            Role
+                            <span className="text-text-primary">Child</span>
                         </label>
-                        <div className="flex space-x-4">
-                            <label className="flex items-center space-x-2 cursor-pointer">
-                                <input
-                                    type="radio"
-                                    name="role"
-                                    value="Child"
-                                    checked={role === 'Child'}
-                                    onChange={() => setRole('Child')}
-                                    className="text-action-primary focus:ring-action-primary"
-                                />
-                                <span className="text-text-primary">Child</span>
-                            </label>
-                            <label className="flex items-center space-x-2 cursor-pointer">
-                                <input
-                                    type="radio"
-                                    name="role"
-                                    value="Parent"
-                                    checked={role === 'Parent'}
-                                    onChange={() => setRole('Parent')}
-                                    className="text-action-primary focus:ring-action-primary"
-                                />
-                                <span className="text-text-primary">Parent (Admin)</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    {/* Color Picker */}
-                    <div className="space-y-1">
-                        <label className="block text-sm font-medium text-text-secondary">
-                            Profile Color
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                                type="radio"
+                                name="role"
+                                value="Parent"
+                                checked={role === 'Parent'}
+                                onChange={() => setRole('Parent')}
+                                className="text-action-primary focus:ring-action-primary"
+                            />
+                            <span className="text-text-primary">Parent (Admin)</span>
                         </label>
-                        <div className="flex flex-wrap gap-2 p-2 bg-bg-canvas rounded-lg border border-border-subtle">
-                            {availableColors.map((color) => (
-                                <button
-                                    type="button"
-                                    key={color.hex}
-                                    title={color.name}
-                                    onClick={() => setSelectedColor(color.hex)}
-                                    className={`w-8 h-8 rounded-full border-2 transition-all
+                    </div>
+                </div>
+
+                {/* Color Picker */}
+                <div className="space-y-1">
+                    <label className="block text-sm font-medium text-text-secondary">
+                        Profile Color
+                    </label>
+                    <div className="flex flex-wrap gap-2 p-2 bg-bg-canvas rounded-lg border border-border-subtle">
+                        {availableColors.map((color) => (
+                            <button
+                                type="button"
+                                key={color.hex}
+                                title={color.name}
+                                onClick={() => setSelectedColor(color.hex)}
+                                className={`w-8 h-8 rounded-full border-2 transition-all
                             ${(selectedColor || defaultColor) === color.hex ? 'border-action-primary ring-2 ring-action-primary/50 scale-110' : 'border-transparent opacity-70 hover:opacity-100'}`}
-                                    style={{ backgroundColor: color.hex }}
-                                >
-                                    {(selectedColor || defaultColor) === color.hex && <Check className="w-5 h-5 text-white m-auto" />}
-                                </button>
-                            ))}
-                        </div>
+                                style={{ backgroundColor: color.hex }}
+                            >
+                                {(selectedColor || defaultColor) === color.hex && <Check className="w-5 h-5 text-white m-auto" />}
+                            </button>
+                        ))}
                     </div>
+                </div>
 
-                    {/* Error Display */}
-                    {error && (
-                        <div className="flex items-center text-sm text-signal-alert">
-                            <AlertTriangle className="w-4 h-4 mr-1.5" /> {error}
-                        </div>
-                    )}
+                {/* Error Display */}
+                {error && (
+                    <div className="flex items-center text-sm text-signal-alert">
+                        <AlertTriangle className="w-4 h-4 mr-1.5" /> {error}
+                    </div>
+                )}
 
-                    {/* Submit Button */}
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        className={`w-full flex justify-center items-center rounded-lg py-3 px-4 text-base font-medium shadow-sm 
+                {/* Submit Button */}
+                <button
+                    type="submit"
+                    disabled={isLoading}
+                    className={`w-full flex justify-center items-center rounded-lg py-3 px-4 text-base font-medium shadow-sm 
                         text-white transition-colors
                         ${isLoading ? 'bg-action-primary/60' : 'bg-action-primary hover:bg-action-hover'}`}
-                    >
-                        {isLoading ? <Loader className="w-5 h-5 animate-spin" /> : <UserPlus className="w-5 h-5 mr-2" />}
-                        Add Member
-                    </button>
-                </form>
-            </div>
-        </div>
+                >
+                    {isLoading ? <Loader className="w-5 h-5 animate-spin" /> : <UserPlus className="w-5 h-5 mr-2" />}
+                    Add Member
+                </button>
+            </form>
+        </Modal>
     );
 };
 

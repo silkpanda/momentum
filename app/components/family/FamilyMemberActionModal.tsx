@@ -9,11 +9,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Award, CheckCircle, CheckSquare, Loader, ShoppingCart, Gift, Package, AlertTriangle, User } from 'lucide-react';
-import { IHouseholdMemberProfile } from '../members/MemberList';
-import { ITask } from '../tasks/TaskList';
-import { IStoreItem } from '../store/StoreItemList';
+import { Award, CheckSquare, Loader, ShoppingCart, Gift, User } from 'lucide-react'; // Removed X, Package, CheckCircle, AlertTriangle
+import { IHouseholdMemberProfile, ITask, IStoreItem } from '../../types';
 import { useSession } from '../layout/SessionContext';
+import Modal from '../shared/Modal';
 
 // --- Props Interface ---
 interface FamilyMemberActionModalProps {
@@ -184,119 +183,101 @@ const FamilyMemberActionModal: React.FC<FamilyMemberActionModalProps> = ({
     };
 
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-            onClick={onClose}
-        >
-            <div
-                className="relative w-full max-w-lg p-6 bg-bg-canvas rounded-xl shadow-xl border border-border-subtle max-h-[80vh] flex flex-col"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <button
-                    onClick={onClose}
-                    className="absolute top-4 right-4 p-1 rounded-full text-text-secondary hover:bg-border-subtle"
-                >
-                    <X className="w-5 h-5" />
-                </button>
-
-                {/* --- Header --- */}
-                <div className="flex items-center justify-between pb-4 mb-4 border-b border-border-subtle">
-                    <div className="flex items-center space-x-3">
-                        <div
-                            className="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-xl"
-                            style={{ backgroundColor: member.profileColor || '#6B7280' }}
-                        >
-                            {member.role === 'Parent' ? <User className="w-6 h-6" /> : member.displayName.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-medium text-text-primary">
-                                {member.displayName}
-                            </h3>
-                            <p className="text-sm text-text-secondary">{member.role}</p>
-                        </div>
+        <Modal isOpen={true} onClose={onClose} title={member.displayName}>
+            {/* --- Header Summary --- */}
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-border-subtle">
+                <div className="flex items-center space-x-3">
+                    <div
+                        className="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-xl"
+                        style={{ backgroundColor: member.profileColor || '#6B7280' }}
+                    >
+                        {member.role === 'Parent' ? <User className="w-6 h-6" /> : member.displayName.charAt(0).toUpperCase()}
                     </div>
-                    <div className="text-right">
-                        <p className="text-3xl font-semibold text-action-primary">{currentPoints}</p>
-                        <p className="text-xs text-text-secondary">Available Points</p>
+                    <div>
+                        <p className="text-sm text-text-secondary">{member.role}</p>
                     </div>
                 </div>
-
-                {/* --- Tabs --- */}
-                <div className="flex items-center space-x-2 mb-4">
-                    <button
-                        onClick={() => setCurrentView('tasks')}
-                        className={`py-2 px-4 rounded-lg text-sm font-medium
-                            ${currentView === 'tasks'
-                                ? 'bg-action-primary text-white'
-                                : 'bg-bg-surface text-text-secondary hover:bg-border-subtle'}`}
-                    >
-                        Tasks ({incompleteTasks.length})
-                    </button>
-                    <button
-                        onClick={() => setCurrentView('store')}
-                        className={`py-2 px-4 rounded-lg text-sm font-medium
-                            ${currentView === 'store'
-                                ? 'bg-action-primary text-white'
-                                : 'bg-bg-surface text-text-secondary hover:bg-border-subtle'}`}
-                    >
-                        Store ({allItems.length})
-                    </button>
-                </div>
-
-                {/* Error Display */}
-                {error && (
-                    <p className="text-sm text-signal-alert mb-2 text-center">{error}</p>
-                )}
-
-                {/* --- Content Area --- */}
-                <div className="flex-1 overflow-y-auto">
-                    {/* --- Tasks View --- */}
-                    {currentView === 'tasks' && (
-                        <div>
-                            {incompleteTasks.length > 0 ? (
-                                <ul className="space-y-2">
-                                    {incompleteTasks.map(task => (
-                                        <MemberTaskItem
-                                            key={task._id}
-                                            task={task}
-                                            onComplete={() => handleMarkComplete(task)}
-                                            isCompleting={completingTaskId === task._id}
-                                        />
-                                    ))}
-                                </ul>
-                            ) : (
-                                <p className="text-sm text-text-secondary text-center p-8">
-                                    No assigned tasks.
-                                </p>
-                            )}
-                        </div>
-                    )}
-
-                    {/* --- Store View --- */}
-                    {currentView === 'store' && (
-                        <div>
-                            {allItems.length > 0 ? (
-                                <ul className="space-y-2">
-                                    {allItems.map(item => (
-                                        <MemberStoreItem
-                                            key={item._id}
-                                            item={item}
-                                            onPurchase={() => handlePurchase(item)}
-                                            canAfford={currentPoints >= item.cost}
-                                            isPurchasing={purchasingItemId === item._id}
-                                        />
-                                    ))}
-                                </ul>
-                            ) : (
-                                <p className="text-sm text-text-secondary text-center p-8">
-                                    No items in the store.
-                                </p>
-                            )}
-                        </div>
-                    )}
+                <div className="text-right">
+                    <p className="text-3xl font-semibold text-action-primary">{currentPoints}</p>
+                    <p className="text-xs text-text-secondary">Available Points</p>
                 </div>
             </div>
-        </div>
+
+            {/* --- Tabs --- */}
+            <div className="flex items-center space-x-2 mb-4">
+                <button
+                    onClick={() => setCurrentView('tasks')}
+                    className={`py-2 px-4 rounded-lg text-sm font-medium
+                            ${currentView === 'tasks'
+                            ? 'bg-action-primary text-white'
+                            : 'bg-bg-surface text-text-secondary hover:bg-border-subtle'}`}
+                >
+                    Tasks ({incompleteTasks.length})
+                </button>
+                <button
+                    onClick={() => setCurrentView('store')}
+                    className={`py-2 px-4 rounded-lg text-sm font-medium
+                            ${currentView === 'store'
+                            ? 'bg-action-primary text-white'
+                            : 'bg-bg-surface text-text-secondary hover:bg-border-subtle'}`}
+                >
+                    Store ({allItems.length})
+                </button>
+            </div>
+
+            {/* Error Display */}
+            {error && (
+                <p className="text-sm text-signal-alert mb-2 text-center">{error}</p>
+            )}
+
+            {/* --- Content Area --- */}
+            <div className="flex-1 overflow-y-auto">
+                {/* --- Tasks View --- */}
+                {currentView === 'tasks' && (
+                    <div>
+                        {incompleteTasks.length > 0 ? (
+                            <ul className="space-y-2">
+                                {incompleteTasks.map(task => (
+                                    <MemberTaskItem
+                                        key={task._id}
+                                        task={task}
+                                        onComplete={() => handleMarkComplete(task)}
+                                        isCompleting={completingTaskId === task._id}
+                                    />
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-text-secondary text-center p-8">
+                                No assigned tasks.
+                            </p>
+                        )}
+                    </div>
+                )}
+
+                {/* --- Store View --- */}
+                {currentView === 'store' && (
+                    <div>
+                        {allItems.length > 0 ? (
+                            <ul className="space-y-2">
+                                {allItems.map(item => (
+                                    <MemberStoreItem
+                                        key={item._id}
+                                        item={item}
+                                        onPurchase={() => handlePurchase(item)}
+                                        canAfford={currentPoints >= item.cost}
+                                        isPurchasing={purchasingItemId === item._id}
+                                    />
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-text-secondary text-center p-8">
+                                No items in the store.
+                            </p>
+                        )}
+                    </div>
+                )}
+            </div>
+        </Modal>
     );
 };
 

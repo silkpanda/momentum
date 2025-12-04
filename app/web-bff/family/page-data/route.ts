@@ -11,6 +11,7 @@ import { populateTaskAssignments } from '../../utils/populateTaskAssignments';
 // Internal API URLs
 const AUTH_ME_URL = `${API_BASE_URL}/auth/me`;
 const TASK_API_URL = `${API_BASE_URL}/tasks`;
+const QUEST_API_URL = `${API_BASE_URL}/quests`;
 const STORE_API_URL = `${API_BASE_URL}/store-items`;
 
 /**
@@ -44,11 +45,12 @@ export async function GET() {
         }
 
         // 2. Make parallel calls to the internal 'momentum-api' with the householdId
-        const [householdResponse, taskResponse, storeResponse, mealPlansResponse, recipesResponse] = await Promise.all([
+        const [householdResponse, taskResponse, questResponse, storeResponse, mealPlansResponse, recipesResponse] = await Promise.all([
             fetch(`${API_BASE_URL}/households/${householdId}`, {
                 headers: { 'Authorization': authorization }
             }),
             fetch(TASK_API_URL, { headers: { 'Authorization': authorization } }),
+            fetch(QUEST_API_URL, { headers: { 'Authorization': authorization } }),
             fetch(STORE_API_URL, { headers: { 'Authorization': authorization } }),
             fetch(`${API_BASE_URL}/meals/plans`, { headers: { 'Authorization': authorization } }),
             fetch(`${API_BASE_URL}/meals/recipes`, { headers: { 'Authorization': authorization } }),
@@ -62,6 +64,7 @@ export async function GET() {
         // 4. Parse data
         const householdData = await householdResponse.json();
         const taskData = await taskResponse.json();
+        const questData = questResponse.ok ? await questResponse.json() : { data: { quests: [] } };
         const storeData = await storeResponse.json();
         const mealPlansData = mealPlansResponse.ok ? await mealPlansResponse.json() : { data: { mealPlans: [] } };
         const recipesData = recipesResponse.ok ? await recipesResponse.json() : { data: { recipes: [] } };
@@ -77,6 +80,7 @@ export async function GET() {
             memberProfiles: memberProfiles,
             currentUser: meData.data.user, // Pass current user data (includes pinSetupCompleted)
             tasks: Array.isArray(populatedTasks) ? populatedTasks : [populatedTasks],
+            quests: questData.data.quests || [],
             storeItems: storeData.data.storeItems || [],
             mealPlans: mealPlansData.data.mealPlans || [],
             recipes: recipesData.data.recipes || [],

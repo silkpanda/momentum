@@ -10,17 +10,7 @@ import { useSession } from '../layout/SessionContext';
 import CreateRecipeModal from './CreateRecipeModal';
 import EditRecipeModal from './EditRecipeModal';
 
-export interface IRecipe {
-    _id: string;
-    name: string;
-    description?: string;
-    ingredients: string[];
-    instructions: string[];
-    prepTime?: number; // minutes
-    cookTime?: number; // minutes
-    servings?: number;
-    tags?: string[];
-}
+import { IRecipe } from '../../types';
 
 interface RecipeListProps {
     recipes: IRecipe[];
@@ -121,7 +111,7 @@ const RecipeList: React.FC<RecipeListProps> = ({ recipes: initialRecipes }) => {
                                     </div>
                                 )}
                             </div>
-                            <h3 className="font-medium text-text-primary mb-1">{recipe.name}</h3>
+                            <h3 className="font-medium text-text-primary mb-1">{recipe.title}</h3>
                             <p className="text-sm text-text-secondary line-clamp-2 mb-3">{recipe.description || "No description."}</p>
 
                             <div className="flex items-center space-x-4 text-xs text-text-tertiary">

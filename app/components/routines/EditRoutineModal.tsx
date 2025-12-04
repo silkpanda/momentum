@@ -8,23 +8,19 @@ import React, { useState, useEffect } from 'react';
 import { X, Calendar, Award, Check, Loader, AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
 import { IRoutine } from './RoutineList';
+import { IHouseholdMemberProfile } from '../../types';
 
 interface EditRoutineModalProps {
     routine: IRoutine;
     onClose: () => void;
     onRoutineUpdated: (routine: IRoutine) => void;
+    members: IHouseholdMemberProfile[];
 }
 
-interface IMember {
-    _id: string;
-    displayName: string;
-}
-
-const EditRoutineModal: React.FC<EditRoutineModalProps> = ({ routine, onClose, onRoutineUpdated }) => {
+const EditRoutineModal: React.FC<EditRoutineModalProps> = ({ routine, onClose, onRoutineUpdated, members }) => {
     const { token } = useSession();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [members, setMembers] = useState<IMember[]>([]);
 
     const [formData, setFormData] = useState({
         title: routine.title,
@@ -34,27 +30,6 @@ const EditRoutineModal: React.FC<EditRoutineModalProps> = ({ routine, onClose, o
         frequency: routine.schedule.frequency,
         steps: routine.steps.map(s => s.title)
     });
-
-    // Fetch members for assignment
-    useEffect(() => {
-        const fetchMembers = async () => {
-            try {
-                const response = await fetch('/web-bff/family/members/page-data', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await response.json();
-                // Extract members from the profile list
-                const memberList = data.memberProfiles.map((p: any) => ({
-                    _id: p.familyMemberId,
-                    displayName: p.displayName
-                }));
-                setMembers(memberList);
-            } catch (e) {
-                console.error("Failed to fetch members", e);
-            }
-        };
-        fetchMembers();
-    }, [token]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;

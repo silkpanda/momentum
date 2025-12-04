@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { Mail, Lock, AlertTriangle, Loader, CheckCircle, LogIn } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import FormInput from '../layout/FormInput'; // TELA CODICIS: Import centralized component
+import GoogleOAuthButton from './GoogleOAuthButton';
 
 // Interface for the form state
 // [FIX] Moved outside component to be accessible by FormInput
@@ -108,6 +109,53 @@ const LoginForm: React.FC = () => {
         }
     };
 
+    const handleGoogleLogin = async (credential: string) => {
+        setError(null);
+        setIsLoading(true);
+
+        try {
+            const response = await fetch('/web-bff/auth/google', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ idToken: credential }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || data.status === 'fail' || data.status === 'error') {
+                const message = data.message || 'Google login failed.';
+                setError(message);
+                setIsLoading(false);
+                return;
+            }
+
+            // Store token
+            if (data.token) {
+                localStorage.setItem('momentum_token', data.token);
+                window.dispatchEvent(new Event('momentum_login'));
+            }
+
+            // Check if user needs onboarding
+            if (data.data?.needsOnboarding) {
+                // Redirect to onboarding page
+                router.push('/onboarding');
+            } else {
+                // User already completed onboarding, go to family page
+                setSuccess(true);
+                setTimeout(() => {
+                    router.push('/family');
+                }, 1500);
+            }
+
+        } catch (err) {
+            console.error('Google login error:', err);
+            setError('A network error occurred during Google login.');
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="w-full max-w-lg">
             <h2 className="text-3xl font-semibold text-text-primary text-center mb-6">
@@ -127,6 +175,19 @@ const LoginForm: React.FC = () => {
                     <p className="text-sm font-medium">Login Successful! Redirecting...</p>
                 </div>
             )}
+
+            {/* Google OAuth Button */}
+            <GoogleOAuthButton text="signin" />
+
+            {/* Divider */}
+            <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-border-subtle"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-bg-surface text-text-secondary">Or login with email</span>
+                </div>
+            </div>
 
             {/* Login Form */}
             <form onSubmit={handleSubmit} className="space-y-6">

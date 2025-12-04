@@ -11,26 +11,11 @@ import CreateTaskModal from './CreateTaskModal';
 import { useSession } from '../layout/SessionContext';
 import EditTaskModal from './EditTaskModal';
 import DeleteTaskModal from './DeleteTaskModal';
-import { IHouseholdMemberProfile } from '../members/MemberList';
+import { IHouseholdMemberProfile } from '../../types';
 import Collapsible from '../layout/CollapsibleSection';
 import TaskCard from '../shared/TaskCard';
 import { type Task } from 'momentum-shared';
-
-// --- Task Interface ---
-export interface ITask {
-    _id: string;
-    title: string;
-    description: string;
-    pointsValue: number;
-    isCompleted: boolean;
-    status?: 'Pending' | 'In Progress' | 'Completed' | 'Approved' | 'PendingApproval';
-    assignedTo: {
-        _id: string;
-        displayName: string;
-        profileColor?: string;
-    }[];
-    householdRefId: string;
-}
+import { ITask } from '../../types';
 
 // --- Main Task List Component ---
 const TaskList: React.FC = () => {

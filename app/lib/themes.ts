@@ -139,6 +139,40 @@ export const themes: Record<string, Theme> = {
             borderSubtle: '#FFE4B5',       // Soft peachy border
         },
     },
+    neonCyberpunk: {
+        id: 'neonCyberpunk',
+        name: 'Neon Cyberpunk',
+        description: '🌃 Electric neon vibes with cyberpunk aesthetics',
+        isPremium: true,
+        colors: {
+            textPrimary: '#00FFFF', // Cyan
+            textSecondary: '#FF00FF', // Magenta
+            actionPrimary: '#FF00FF', // Hot Pink/Magenta
+            actionHover: '#FF1493', // Deep Pink
+            signalSuccess: '#00FF41', // Neon Green
+            signalAlert: '#FF073A', // Neon Red
+            bgCanvas: '#0a0a0a', // Almost black
+            bgSurface: 'rgba(26, 10, 46, 0.8)', // Dark purple with transparency
+            borderSubtle: '#FF00FF80', // Magenta with 50% opacity
+        },
+    },
+    spaceExplorer: {
+        id: 'spaceExplorer',
+        name: 'Space Explorer',
+        description: '🚀 Journey through the cosmos with stellar colors',
+        isPremium: true,
+        colors: {
+            textPrimary: '#FFFFFF', // White
+            textSecondary: '#B8C5D6', // Light blue-gray
+            actionPrimary: '#00D9FF', // Bright cyan
+            actionHover: '#00B8D4', // Darker cyan
+            signalSuccess: '#00FF88', // Bright green
+            signalAlert: '#FF6B9D', // Soft pink
+            bgCanvas: '#000428', // Deep space blue
+            bgSurface: 'rgba(0, 78, 146, 0.6)', // Semi-transparent blue
+            borderSubtle: '#00D9FF40', // Cyan with 25% opacity
+        },
+    },
 };
 
 export const freeThemes = Object.values(themes).filter(t => !t.isPremium);

@@ -9,9 +9,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Award, Check, Loader, Type, X, AlertTriangle, UserCheck } from 'lucide-react';
-import { ITask } from './TaskList';
-import { IHouseholdMemberProfile } from '../members/MemberList';
+import { Award, Check, Loader, Type, AlertTriangle, UserCheck } from 'lucide-react'; // Removed X
+import { ITask, IHouseholdMemberProfile } from '../../types';
 import { useSession } from '../layout/SessionContext';
 import {
     validateForm,
@@ -20,6 +19,7 @@ import {
     type FormField,
     type FormData
 } from 'momentum-shared';
+import Modal from '../shared/Modal';
 
 interface CreateTaskModalProps {
     onClose: () => void;
@@ -129,148 +129,131 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onTaskCreate
     };
 
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-            onClick={onClose}
-        >
-            <div
-                className="relative w-full max-w-lg p-6 bg-bg-surface rounded-xl shadow-xl border border-border-subtle"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <button
-                    onClick={onClose}
-                    className="absolute top-4 right-4 p-1 rounded-full text-text-secondary hover:bg-border-subtle"
-                >
-                    <X className="w-5 h-5" />
-                </button>
+        <Modal isOpen={true} onClose={onClose} title="Create a New Task">
+            <form onSubmit={handleSubmit} className="flex flex-col space-y-4">
+                <p className="text-sm text-text-secondary pb-2">
+                    Fill in the details for the new task.
+                </p>
 
-                <form onSubmit={handleSubmit} className="flex flex-col space-y-4">
-
-                    <h3 className="text-xl font-medium text-text-primary">Create a New Task</h3>
-                    <p className="text-sm text-text-secondary pb-2">
-                        Fill in the details for the new task.
-                    </p>
-
-                    {/* Task Title Input */}
-                    <div className="space-y-1">
-                        <label htmlFor="title" className="block text-sm font-medium text-text-secondary">
-                            Task Title (Mandatory)
-                        </label>
-                        <div className="relative rounded-md shadow-sm">
-                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                <Type className="h-5 w-5 text-text-secondary" />
-                            </div>
-                            <input
-                                id="title"
-                                name="title"
-                                type="text"
-                                value={formData.title}
-                                onChange={(e) => handleChange('title', e.target.value)}
-                                placeholder="e.g., 'Empty the dishwasher'"
-                                className={`block w-full rounded-md border p-3 pl-10 text-text-primary bg-bg-surface
+                {/* Task Title Input */}
+                <div className="space-y-1">
+                    <label htmlFor="title" className="block text-sm font-medium text-text-secondary">
+                        Task Title (Mandatory)
+                    </label>
+                    <div className="relative rounded-md shadow-sm">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <Type className="h-5 w-5 text-text-secondary" />
+                        </div>
+                        <input
+                            id="title"
+                            name="title"
+                            type="text"
+                            value={formData.title}
+                            onChange={(e) => handleChange('title', e.target.value)}
+                            placeholder="e.g., 'Empty the dishwasher'"
+                            className={`block w-full rounded-md border p-3 pl-10 text-text-primary bg-bg-surface
                                     ${errors.title ? 'border-signal-alert focus:ring-signal-alert' : 'border-border-subtle focus:ring-action-primary'}`}
-                            />
-                        </div>
-                        {errors.title && <p className="text-xs text-signal-alert mt-1">{errors.title}</p>}
-                    </div>
-
-                    {/* Points Value Input */}
-                    <div className="space-y-1">
-                        <label htmlFor="pointsValue" className="block text-sm font-medium text-text-secondary">
-                            Points Value (Mandatory)
-                        </label>
-                        <div className="relative rounded-md shadow-sm">
-                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                <Award className="h-5 w-5 text-text-secondary" />
-                            </div>
-                            <input
-                                id="pointsValue"
-                                name="pointsValue"
-                                type="number"
-                                min="1"
-                                value={formData.pointsValue}
-                                onChange={(e) => handleChange('pointsValue', e.target.value)}
-                                className={`block w-full rounded-md border p-3 pl-10 text-text-primary bg-bg-surface
-                                    ${errors.pointsValue ? 'border-signal-alert focus:ring-signal-alert' : 'border-border-subtle focus:ring-action-primary'}`}
-                            />
-                        </div>
-                        {errors.pointsValue && <p className="text-xs text-signal-alert mt-1">{errors.pointsValue}</p>}
-                    </div>
-
-                    {/* Description Input */}
-                    <div className="space-y-1">
-                        <label htmlFor="description" className="block text-sm font-medium text-text-secondary">
-                            Description (Optional)
-                        </label>
-                        <textarea
-                            id="description"
-                            name="description"
-                            rows={3}
-                            value={formData.description}
-                            onChange={(e) => handleChange('description', e.target.value)}
-                            placeholder="e.g., 'Make sure all dishes are put away correctly.'"
-                            className="block w-full rounded-md border border-border-subtle p-3 text-text-primary bg-bg-surface focus:ring-action-primary"
                         />
                     </div>
+                    {errors.title && <p className="text-xs text-signal-alert mt-1">{errors.title}</p>}
+                </div>
 
-                    {/* Assign Members (Mandatory) */}
-                    <div className="space-y-1">
-                        <label className="block text-sm font-medium text-text-secondary">
-                            Assign to (Mandatory)
-                        </label>
-                        <div className={`flex flex-wrap gap-2 p-2 bg-bg-canvas rounded-lg border 
-                            ${errors.assignedTo ? 'border-signal-alert' : 'border-border-subtle'}`}>
-                            {householdMembers.length > 0 ? householdMembers.map((member) => (
-                                <button
-                                    type="button"
-                                    key={member._id}
-                                    title={`Assign to ${member.displayName}`}
-                                    onClick={() => toggleAssignment(member)}
-                                    className={`flex items-center space-x-2 p-2 pr-3 rounded-full border transition-all
-                            ${isMemberAssigned(member)
-                                            ? 'bg-action-primary/10 border-action-primary text-action-primary'
-                                            : 'bg-bg-surface border-border-subtle text-text-secondary hover:bg-border-subtle'}`}
-                                >
-                                    <div
-                                        className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                                        style={{ backgroundColor: member.profileColor || '#808080' }}
-                                    >
-                                        {member.displayName.charAt(0).toUpperCase()}
-                                    </div>
-                                    <span className="text-sm font-medium">{member.displayName}</span>
-                                    {isMemberAssigned(member) && (
-                                        <UserCheck className="w-4 h-4" />
-                                    )}
-                                </button>
-                            )) : (
-                                <p className="text-sm text-text-secondary p-2">No members available to assign.</p>
-                            )}
+                {/* Points Value Input */}
+                <div className="space-y-1">
+                    <label htmlFor="pointsValue" className="block text-sm font-medium text-text-secondary">
+                        Points Value (Mandatory)
+                    </label>
+                    <div className="relative rounded-md shadow-sm">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <Award className="h-5 w-5 text-text-secondary" />
                         </div>
-                        {errors.assignedTo && <p className="text-xs text-signal-alert mt-1">{errors.assignedTo}</p>}
+                        <input
+                            id="pointsValue"
+                            name="pointsValue"
+                            type="number"
+                            min="1"
+                            value={formData.pointsValue}
+                            onChange={(e) => handleChange('pointsValue', e.target.value)}
+                            className={`block w-full rounded-md border p-3 pl-10 text-text-primary bg-bg-surface
+                                    ${errors.pointsValue ? 'border-signal-alert focus:ring-signal-alert' : 'border-border-subtle focus:ring-action-primary'}`}
+                        />
                     </div>
+                    {errors.pointsValue && <p className="text-xs text-signal-alert mt-1">{errors.pointsValue}</p>}
+                </div>
 
-                    {/* Global Error Display */}
-                    {errors.global && (
-                        <div className="flex items-center text-sm text-signal-alert">
-                            <AlertTriangle className="w-4 h-4 mr-1.5" /> {errors.global}
-                        </div>
-                    )}
+                {/* Description Input */}
+                <div className="space-y-1">
+                    <label htmlFor="description" className="block text-sm font-medium text-text-secondary">
+                        Description (Optional)
+                    </label>
+                    <textarea
+                        id="description"
+                        name="description"
+                        rows={3}
+                        value={formData.description}
+                        onChange={(e) => handleChange('description', e.target.value)}
+                        placeholder="e.g., 'Make sure all dishes are put away correctly.'"
+                        className="block w-full rounded-md border border-border-subtle p-3 text-text-primary bg-bg-surface focus:ring-action-primary"
+                    />
+                </div>
 
-                    {/* Submit Button */}
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        className={`w-full flex justify-center items-center rounded-lg py-3 px-4 text-base font-medium shadow-sm 
+                {/* Assign Members (Mandatory) */}
+                <div className="space-y-1">
+                    <label className="block text-sm font-medium text-text-secondary">
+                        Assign to (Mandatory)
+                    </label>
+                    <div className={`flex flex-wrap gap-2 p-2 bg-bg-canvas rounded-lg border 
+                            ${errors.assignedTo ? 'border-signal-alert' : 'border-border-subtle'}`}>
+                        {householdMembers.length > 0 ? householdMembers.map((member) => (
+                            <button
+                                type="button"
+                                key={member._id}
+                                title={`Assign to ${member.displayName}`}
+                                onClick={() => toggleAssignment(member)}
+                                className={`flex items-center space-x-2 p-2 pr-3 rounded-full border transition-all
+                            ${isMemberAssigned(member)
+                                        ? 'bg-action-primary/10 border-action-primary text-action-primary'
+                                        : 'bg-bg-surface border-border-subtle text-text-secondary hover:bg-border-subtle'}`}
+                            >
+                                <div
+                                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                                    style={{ backgroundColor: member.profileColor || '#808080' }}
+                                >
+                                    {member.displayName.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="text-sm font-medium">{member.displayName}</span>
+                                {isMemberAssigned(member) && (
+                                    <UserCheck className="w-4 h-4" />
+                                )}
+                            </button>
+                        )) : (
+                            <p className="text-sm text-text-secondary p-2">No members available to assign.</p>
+                        )}
+                    </div>
+                    {errors.assignedTo && <p className="text-xs text-signal-alert mt-1">{errors.assignedTo}</p>}
+                </div>
+
+                {/* Global Error Display */}
+                {errors.global && (
+                    <div className="flex items-center text-sm text-signal-alert">
+                        <AlertTriangle className="w-4 h-4 mr-1.5" /> {errors.global}
+                    </div>
+                )}
+
+                {/* Submit Button */}
+                <button
+                    type="submit"
+                    disabled={isLoading}
+                    className={`w-full flex justify-center items-center rounded-lg py-3 px-4 text-base font-medium shadow-sm 
                         text-white transition-colors
                         ${isLoading ? 'bg-action-primary/60' : 'bg-action-primary hover:bg-action-hover'}`}
-                    >
-                        {isLoading ? <Loader className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5 mr-2" />}
-                        Create Task
-                    </button>
+                >
+                    {isLoading ? <Loader className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5 mr-2" />}
+                    Create Task
+                </button>
 
-                </form>
-            </div>
-        </div>
+            </form>
+        </Modal>
     );
 };
 

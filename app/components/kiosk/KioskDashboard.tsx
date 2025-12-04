@@ -5,52 +5,28 @@
 // =========================================================
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useSession } from '../layout/SessionContext';
-import { IHouseholdMemberProfile } from '../members/MemberList';
-import { ITask } from '../tasks/TaskList';
-import { IStoreItem } from '../store/StoreItemList';
-import { Loader, AlertTriangle, User, Calendar, UtensilsCrossed, ListTodo, Bell, Settings } from 'lucide-react';
+import { IHouseholdMemberProfile, ITask, IStoreItem, IRecipe } from '../../types';
+import { Loader, AlertTriangle, User, Calendar, UtensilsCrossed, ListTodo, Bell, Settings, Target } from 'lucide-react';
 import KioskMemberProfileModal from './KioskMemberProfileModal';
+import FocusModeModal from '../focus/FocusModeModal';
 import PinVerificationModal from '../auth/PinVerificationModal';
 import { useRouter } from 'next/navigation';
-import { useSocketEvent } from '../../../lib/hooks/useSocket';
-import { SOCKET_EVENTS, TaskUpdatedEvent, MemberPointsUpdatedEvent, StoreItemUpdatedEvent, HouseholdUpdatedEvent } from '../../../lib/socket';
+import { useFamilyData } from '../../../lib/hooks/useFamilyData';
 
 // --- Types ---
-
-// --- Types ---
-
-interface IWeeklyMealPlan {
-    _id: string;
-    startDate: string;
-    endDate: string;
-    meals: {
-        _id: string;
-        date: string;
-        mealType: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
-        itemType: 'Recipe' | 'Restaurant' | 'Custom';
-        itemId?: { _id: string; name: string; title?: string; description?: string };
-        customTitle?: string;
-    }[];
-}
-
-interface IRecipe {
-    _id: string;
-    name: string;
-    description?: string;
-    prepTime?: number;
-    cookTime?: number;
-}
 
 // --- Member Avatar Card Component ---
 interface MemberAvatarProps {
     member: IHouseholdMemberProfile;
     taskCount: number;
+    focusedTask?: ITask;
     onClick: () => void;
+    onFocusClick: (e: React.MouseEvent) => void;
 }
 
-const MemberAvatar: React.FC<MemberAvatarProps> = ({ member, taskCount, onClick }) => {
+const MemberAvatar: React.FC<MemberAvatarProps> = ({ member, taskCount, focusedTask, onClick, onFocusClick }) => {
     return (
         <button
             onClick={onClick}
@@ -62,10 +38,23 @@ const MemberAvatar: React.FC<MemberAvatarProps> = ({ member, taskCount, onClick 
                 borderColor: member.profileColor ? `${member.profileColor}40` : undefined,
             }}
         >
+            {/* Focus Mode Button */}
+            <div
+                onClick={onFocusClick}
+                className={`absolute top-3 right-3 p-2 rounded-full transition-all z-10
+                    ${focusedTask
+                        ? 'bg-action-primary text-white shadow-lg scale-110'
+                        : 'bg-bg-surface/50 text-text-tertiary hover:bg-action-primary hover:text-white hover:scale-110'}`}
+                title={focusedTask ? `Focused: ${focusedTask.title}` : "Set Focus Task"}
+            >
+                <Target className="w-5 h-5" />
+            </div>
+
             {/* Avatar Circle */}
             <div
-                className="w-24 h-24 rounded-full flex items-center justify-center text-white font-bold text-3xl mb-3 
-                           shadow-lg group-hover:shadow-xl transition-shadow"
+                className={`w-24 h-24 rounded-full flex items-center justify-center text-white font-bold text-3xl mb-3 
+                           shadow-lg group-hover:shadow-xl transition-shadow relative
+                           ${focusedTask ? 'ring-4 ring-action-primary ring-offset-2 ring-offset-bg-surface' : ''}`}
                 style={{ backgroundColor: member.profileColor || '#6B7280' }}
             >
                 {member.role === 'Parent' ? (
@@ -79,6 +68,15 @@ const MemberAvatar: React.FC<MemberAvatarProps> = ({ member, taskCount, onClick 
             <h3 className="text-lg font-semibold text-text-primary mb-1">
                 {member.displayName}
             </h3>
+
+            {/* Focused Task Label */}
+            {focusedTask && (
+                <div className="mb-2 px-3 py-1 rounded-full bg-action-primary/10 border border-action-primary/20">
+                    <p className="text-xs font-medium text-action-primary truncate max-w-[120px]">
+                        🎯 {focusedTask.title}
+                    </p>
+                </div>
+            )}
 
             {/* Stats Row */}
             <div className="flex items-center space-x-4 mt-2">
@@ -151,140 +149,18 @@ const RemindParentButton: React.FC = () => {
 
 // --- Main Kiosk Dashboard Component ---
 const KioskDashboard: React.FC = () => {
-    console.log('[KioskDashboard] Component rendering');
-    const { token, householdId, user } = useSession();
-    console.log('[KioskDashboard] Session data - token:', !!token, 'householdId:', householdId, 'user:', user);
-
-    const [members, setMembers] = useState<IHouseholdMemberProfile[]>([]);
-    const [tasks, setTasks] = useState<ITask[]>([]);
-    const [storeItems, setStoreItems] = useState<IStoreItem[]>([]);
-    const [mealPlans, setMealPlans] = useState<IWeeklyMealPlan[]>([]);
-    const [recipes, setRecipes] = useState<IRecipe[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { householdId, user } = useSession();
+    const { members, tasks, storeItems, mealPlans, recipes, loading, error, refresh } = useFamilyData();
 
     // Modal state
     const [selectedMember, setSelectedMember] = useState<IHouseholdMemberProfile | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isFocusModalOpen, setIsFocusModalOpen] = useState(false);
 
     // --- Parent Dashboard Navigation ---
     const router = useRouter();
     const [isPinModalOpen, setIsPinModalOpen] = useState(false);
     const [parentMemberId, setParentMemberId] = useState<string>('');
-
-    const fetchData = useCallback(async () => {
-        console.log('[KioskDashboard] fetchData called');
-        if (!token || !householdId) {
-            console.log('[KioskDashboard] Missing auth - token:', !!token, 'householdId:', householdId);
-            setError('Authentication error. Please log in again.');
-            setLoading(false);
-            return;
-        }
-        setLoading(true);
-        setError(null);
-
-        try {
-            console.log('[KioskDashboard] Fetching from /web-bff/family/page-data');
-            // Use the family page-data endpoint (same data we need)
-            const response = await fetch('/web-bff/family/page-data', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            console.log('[KioskDashboard] Response status:', response.status);
-            if (!response.ok) {
-                throw new Error('Failed to fetch kiosk data');
-            }
-
-            const data = await response.json();
-            console.log('[KioskDashboard] Data received:', data);
-
-            if (data.memberProfiles && data.tasks && data.storeItems) {
-                setMembers(data.memberProfiles);
-                setTasks(data.tasks);
-                setStoreItems(data.storeItems);
-                setMealPlans(data.mealPlans || []);
-                setRecipes(data.recipes || []);
-                console.log('[KioskDashboard] Data set successfully');
-            } else {
-                throw new Error('Invalid data structure');
-            }
-
-        } catch (e: any) {
-            console.error('[KioskDashboard] Error:', e);
-            setError(e.message);
-        } finally {
-            setLoading(false);
-            console.log('[KioskDashboard] Loading complete');
-        }
-    }, [token, householdId]);
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-
-    // ========================================
-    // WebSocket Real-Time Updates
-    // ========================================
-
-    // Listen for task updates
-    useSocketEvent<TaskUpdatedEvent>(SOCKET_EVENTS.TASK_UPDATED, (data) => {
-        console.log('[KioskDashboard] Task updated via WebSocket:', data);
-
-        if (data.type === 'create' && data.task) {
-            // Add new task
-            setTasks(prev => [data.task, ...prev]);
-        } else if (data.type === 'update' && data.task) {
-            // Update existing task
-            setTasks(prev => prev.map(t => t._id === data.task._id ? data.task : t));
-
-            // Update member points if included
-            if (data.memberUpdate) {
-                setMembers(prev => prev.map(m =>
-                    m._id === data.memberUpdate!.memberId
-                        ? { ...m, pointsTotal: data.memberUpdate!.pointsTotal }
-                        : m
-                ));
-            }
-        } else if (data.type === 'delete' && data.taskId) {
-            // Remove deleted task
-            setTasks(prev => prev.filter(t => t._id !== data.taskId));
-        }
-    });
-
-    // Listen for member points updates
-    useSocketEvent<MemberPointsUpdatedEvent>(SOCKET_EVENTS.MEMBER_POINTS_UPDATED, (data) => {
-        console.log('[KioskDashboard] Member points updated via WebSocket:', data);
-
-        setMembers(prev => prev.map(m =>
-            m._id === data.memberId
-                ? { ...m, pointsTotal: data.pointsTotal }
-                : m
-        ));
-    });
-
-    // Listen for store item updates
-    useSocketEvent<StoreItemUpdatedEvent>(SOCKET_EVENTS.STORE_ITEM_UPDATED, (data) => {
-        console.log('[KioskDashboard] Store item updated via WebSocket:', data);
-
-        if (data.type === 'create' && data.storeItem) {
-            setStoreItems(prev => [data.storeItem, ...prev]);
-        } else if (data.type === 'update' && data.storeItem) {
-            setStoreItems(prev => prev.map(item => item._id === data.storeItem._id ? data.storeItem : item));
-        } else if (data.type === 'delete' && data.storeItemId) {
-            setStoreItems(prev => prev.filter(item => item._id !== data.storeItemId));
-        }
-    });
-
-    // Listen for household updates (renames, member add/remove/update)
-    useSocketEvent<HouseholdUpdatedEvent>(SOCKET_EVENTS.HOUSEHOLD_UPDATED, (data) => {
-        console.log('[KioskDashboard] Household updated via WebSocket:', data);
-
-        // Only refresh if it matches our current household
-        if (data.householdId === householdId) {
-            console.log('[KioskDashboard] Refreshing data due to household update');
-            fetchData();
-        }
-    });
 
     // Get task count for a member
     // NOTE: We use the member's PROFILE ID (_id), not the user ID (familyMemberId._id)
@@ -295,14 +171,26 @@ const KioskDashboard: React.FC = () => {
         ).length;
     };
 
+    const getFocusedTask = (member: IHouseholdMemberProfile) => {
+        if (!member.currentFocusTaskId) return undefined;
+        return tasks.find(t => t._id === member.currentFocusTaskId);
+    };
+
     // Handle member selection
     const handleMemberClick = (member: IHouseholdMemberProfile) => {
         setSelectedMember(member);
         setIsModalOpen(true);
     };
 
+    const handleFocusClick = (e: React.MouseEvent, member: IHouseholdMemberProfile) => {
+        e.stopPropagation(); // Prevent opening the profile modal
+        setSelectedMember(member);
+        setIsFocusModalOpen(true);
+    };
+
     const handleModalClose = () => {
         setIsModalOpen(false);
+        setIsFocusModalOpen(false);
         setSelectedMember(null);
         // No need to refresh data - WebSocket updates handle this automatically
     };
@@ -315,9 +203,10 @@ const KioskDashboard: React.FC = () => {
         let todaysDinner: any = null;
 
         for (const plan of mealPlans) {
-            const meal = plan.meals.find(m =>
-                m.date.startsWith(today) && m.mealType === 'Dinner'
-            );
+            const meal = plan.meals.find(m => {
+                const mDate = typeof m.date === 'string' ? m.date : m.date.toISOString();
+                return mDate.startsWith(today) && m.mealType === 'Dinner';
+            });
             if (meal) {
                 todaysDinner = meal;
                 break;
@@ -345,7 +234,7 @@ const KioskDashboard: React.FC = () => {
         if (recipes.length > 0) {
             const randomRecipe = recipes[0]; // Just take first for now
             return {
-                title: randomRecipe.name,
+                title: randomRecipe.title,
                 description: 'Suggested Meal'
             };
         }
@@ -382,33 +271,30 @@ const KioskDashboard: React.FC = () => {
     const totalPendingTasks = tasks.filter(t => !t.isCompleted).length;
     const totalCompletedTasks = tasks.filter(t => t.isCompleted).length;
 
-
-
     const handleParentDashboardClick = () => {
         // Prioritize the current logged-in user if they are a parent
-        // The user object from useSession contains the familyMemberId (as _id)
-        // We need to find the corresponding profile in the members list to get the correct ID if needed,
-        // but verifyPin expects memberId (which is the profile ID in household.memberProfiles).
-
-        // Wait, user._id from session is usually the FamilyMember ID, not the HouseholdMemberProfile ID?
-        // Let's check how user is populated in SessionProvider. 
-        // Assuming user._id matches one of the member's familyMemberId or _id.
-        // Actually, let's look at the members list. It contains _id (profile ID) and familyMemberId (user ID).
-
         let targetMemberId = '';
 
-        // Try to find the current user in the members list
-        // We don't have user object here yet, let's get it from useSession
+        console.log('[KioskDashboard] Finding parent member for PIN verification');
+        console.log('[KioskDashboard] Current user:', user);
+        console.log('[KioskDashboard] Available members:', members.map(m => ({
+            _id: m._id,
+            displayName: m.displayName,
+            role: m.role,
+            familyMemberId: typeof m.familyMemberId === 'object' ? m.familyMemberId._id : m.familyMemberId
+        })));
 
         if (user && user.role === 'Parent') {
-            // Find the member profile that corresponds to this user
-            // We assume user._id is the FamilyMember ID.
-            // But wait, the session user might be the profile ID? 
-            // Let's assume for now we search by role 'Parent' and if multiple, we pick the one that matches user._id if possible.
-            // Actually, let's just pick the first parent for now, BUT if the user is a parent, we should try to match them.
+            const currentUserProfile = members.find(m => {
+                // Handle both populated (object) and unpopulated (string) familyMemberId
+                const familyMemberIdStr = typeof m.familyMemberId === 'object'
+                    ? m.familyMemberId._id
+                    : m.familyMemberId;
+                return familyMemberIdStr === user._id;
+            });
 
-            // Since we don't have the user object destructured yet, let's add it.
-            const currentUserProfile = members.find(m => m.familyMemberId._id === user._id || m._id === user._id);
+            console.log('[KioskDashboard] Found current user profile:', currentUserProfile);
+
             if (currentUserProfile && currentUserProfile.role === 'Parent') {
                 targetMemberId = currentUserProfile._id;
             }
@@ -417,16 +303,20 @@ const KioskDashboard: React.FC = () => {
         if (!targetMemberId) {
             // Fallback: Pick the first parent found
             const parent = members.find(m => m.role === 'Parent');
+            console.log('[KioskDashboard] Fallback to first parent:', parent);
             if (parent) {
                 targetMemberId = parent._id;
             }
         }
 
         if (targetMemberId) {
+            console.log('[KioskDashboard] Parent member ID for PIN verification:', targetMemberId);
+            console.log('[KioskDashboard] Household ID:', householdId);
             setParentMemberId(targetMemberId);
             setIsPinModalOpen(true);
         } else {
-            setError('No parent profile found to verify against.');
+            console.error('[KioskDashboard] No parent profile found!');
+            alert('No parent profile found to verify against.');
         }
     };
 
@@ -477,7 +367,9 @@ const KioskDashboard: React.FC = () => {
                                 key={member._id}
                                 member={member}
                                 taskCount={getTaskCount(member._id)}
+                                focusedTask={getFocusedTask(member)}
                                 onClick={() => handleMemberClick(member)}
+                                onFocusClick={(e) => handleFocusClick(e, member)}
                             />
                         ))}
                 </div>
@@ -540,6 +432,21 @@ const KioskDashboard: React.FC = () => {
                         allTasks={tasks}
                         allItems={storeItems}
                         onClose={handleModalClose}
+                    />
+                )
+            }
+
+            {/* Focus Mode Modal */}
+            {
+                isFocusModalOpen && selectedMember && (
+                    <FocusModeModal
+                        member={selectedMember}
+                        tasks={tasks}
+                        onClose={handleModalClose}
+                        onFocusSet={() => {
+                            // Optimistic update or refresh
+                            refresh();
+                        }}
                     />
                 )
             }

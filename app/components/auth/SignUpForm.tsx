@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Mail, Lock, User, AlertTriangle, Loader, CheckCircle, Home, CheckIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import FormInput from '../layout/FormInput';
+import GoogleOAuthButton from './GoogleOAuthButton';
 import { PROFILE_COLORS } from '../../lib/constants';
 
 interface FormState {
@@ -135,6 +136,19 @@ const SignUpForm: React.FC = () => {
                     <p className="text-sm font-medium">Success! Redirecting you now...</p>
                 </div>
             )}
+
+            {/* Google OAuth Button */}
+            <GoogleOAuthButton text="signup" />
+
+            {/* Divider */}
+            <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-border-subtle"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-bg-surface text-text-secondary">Or sign up with email</span>
+                </div>
+            </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

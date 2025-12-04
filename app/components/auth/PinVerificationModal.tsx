@@ -105,6 +105,13 @@ export default function PinVerificationModal({
         setIsLoading(true);
         setError(null);
 
+        console.log('[PinVerificationModal] Verifying PIN with:', {
+            memberId,
+            householdId,
+            pinLength: enteredPin.length,
+            hasToken: !!token
+        });
+
         try {
             const response = await fetch('/web-bff/pin/verify', {
                 method: 'POST',

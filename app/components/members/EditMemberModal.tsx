@@ -1,46 +1,34 @@
-// =========================================================
-// silkpanda/momentum/momentum-e07d696d5dc5be6d5d5681cef733d2cb80fb1772/app/components/members/EditMemberModal.tsx
-// REFACTORED: Allows all users (Parents and Children) to edit profile color
-// REFACTORED (v4) to call Embedded Web BFF
-//
-// TELA CODICIS CLEANUP: Modified onMemberUpdated to return
-// the updated profile object for optimistic state updates.
-// =========================================================
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { User, Loader, X, AlertTriangle, Check, Palette, Mail } from 'lucide-react';
+import React, { useState } from 'react';
+import { User, Loader, AlertTriangle, Check, Save, Trash2 } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
-import { IHouseholdMemberProfile } from './MemberList'; // Import new interface
-import { PROFILE_COLORS } from '../../lib/constants'; // TELA CODICIS: Import constant
+import { IHouseholdMemberProfile } from '../../types';
+import { PROFILE_COLORS } from '../../lib/constants';
+import Modal from '../shared/Modal';
 
 interface EditMemberModalProps {
-    member: IHouseholdMemberProfile; // Use new interface
-    householdId: string;
+    member: IHouseholdMemberProfile;
     onClose: () => void;
-    onMemberUpdated: (updatedProfile: IHouseholdMemberProfile) => void; // TELA CODICIS: Pass back updated profile
-    usedColors: string[]; // This is still needed for children
+    onMemberUpdated: (updatedProfile: IHouseholdMemberProfile) => void;
+    onMemberDeleted: (memberId: string) => void;
 }
 
 const EditMemberModal: React.FC<EditMemberModalProps> = ({
-    member, householdId, onClose, onMemberUpdated, usedColors
+    member, onClose, onMemberUpdated, onMemberDeleted
 }) => {
-    const [displayName, setDisplayName] = useState(member.displayName);
-    // Handle optional profileColor
-    const [selectedColor, setSelectedColor] = useState(member.profileColor || PROFILE_COLORS[0].hex); // Default to first color if null
+    const { token, householdId } = useSession();
+    const [firstName, setFirstName] = useState(member.displayName);
+    const [selectedColor, setSelectedColor] = useState<string>(member.profileColor || PROFILE_COLORS[0].hex);
+    const [role, setRole] = useState<'Parent' | 'Child'>(member.role);
     const [isLoading, setIsLoading] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const { token } = useSession();
-
-    // Colors available are any not used OR the one currently used by this member
-    const availableColors = PROFILE_COLORS.filter(
-        c => !usedColors.includes(c.hex) || c.hex === member.profileColor
-    );
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (displayName.trim() === '') {
-            setError('Display Name is required.');
+        if (firstName.trim() === '') {
+            setError('First Name is required.');
             return;
         }
 
@@ -48,157 +36,192 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({
         setError(null);
 
         try {
-            // PATCH to the 'updateMemberProfile' endpoint
-            // REFACTORED (v4): Call the Embedded BFF endpoint
             const response = await fetch(`/web-bff/family/members/${member._id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
+                    'Authorization': `Bearer ${token}`
                 },
-                // FIX: Always send both fields. The API now accepts profileColor for Parents.
-                //
-                body: JSON.stringify(
-                    {
-                        householdId: householdId, // <-- ADD THIS
-                        displayName: displayName,
-                        profileColor: selectedColor
-                    }
-                ),
+                body: JSON.stringify({
+                    householdId,
+                    firstName: firstName.trim(),
+                    displayName: firstName.trim(),
+                    role,
+                    profileColor: selectedColor,
+                }),
             });
 
             const data = await response.json();
+
             if (!response.ok) {
-                throw new Error(data.message || 'Failed to update member.');
+                throw new Error(data.message || 'Failed to update member');
             }
 
-            // TELA CODICIS: Find the updated profile from the returned household doc
-            // The API route for this returns the raw household doc, not a wrapped object
-            const updatedProfile = data.memberProfiles.find(
-                (p: IHouseholdMemberProfile) => p._id === member._id
-            );
+            // The API might return the updated member in a different structure depending on the endpoint
+            // Adjust based on actual API response if needed. 
+            // Assuming data.data.memberProfile based on typical pattern, or fallback to data.memberProfiles logic from previous file if needed.
+            // Let's check the previous file's logic: it looked for member in data.memberProfiles.
 
-            // Call the refresh function passed from the parent
+            let updatedProfile = data.data?.memberProfile;
+
+            if (!updatedProfile && data.memberProfiles) {
+                updatedProfile = data.memberProfiles.find(
+                    (p: IHouseholdMemberProfile) => p._id === member._id
+                );
+            }
+
             if (updatedProfile) {
                 onMemberUpdated(updatedProfile);
             } else {
-                onMemberUpdated({ ...member, displayName, profileColor: selectedColor }); // Fallback
+                // Fallback optimistic update
+                onMemberUpdated({ ...member, displayName: firstName, role, profileColor: selectedColor });
             }
-            onClose(); // Close the modal on success
 
+            onClose();
         } catch (err: any) {
-            setError(err.message);
+            console.error('Update member error:', err);
+            setError(err.message || 'An unexpected error occurred.');
         } finally {
             setIsLoading(false);
         }
     };
 
+    const handleDelete = async () => {
+        if (!confirm(`Are you sure you want to remove ${member.displayName}? This cannot be undone.`)) {
+            return;
+        }
+
+        setIsDeleting(true);
+        setError(null);
+
+        try {
+            const response = await fetch(`/web-bff/family/members/${member._id}?householdId=${householdId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.message || 'Failed to delete member');
+            }
+
+            onMemberDeleted(member._id);
+            onClose();
+        } catch (err: any) {
+            console.error('Delete member error:', err);
+            setError(err.message || 'An unexpected error occurred.');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-            onClick={onClose}
-        >
-            <div
-                className="relative w-full max-w-md p-6 bg-bg-surface rounded-xl shadow-xl border border-border-subtle"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <button
-                    onClick={onClose}
-                    className="absolute top-4 right-4 p-1 rounded-full text-text-secondary hover:bg-border-subtle"
-                >
-                    <X className="w-5 h-5" />
-                </button>
-
-                <form onSubmit={handleSubmit} className="flex flex-col space-y-4">
-                    <h3 className="text-xl font-medium text-text-primary">
-                        Edit {member.role === 'Parent' ? 'Your Profile' : 'Member Profile'}
-                    </h3>
-
-                    {/* Display Name Input */}
-                    <div className="space-y-1">
-                        <label htmlFor="firstName" className="block text-sm font-medium text-text-secondary">
-                            Display Name
-                        </label>
-                        <div className="relative rounded-md shadow-sm">
-                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                <User className="h-5 w-5 text-text-secondary" />
-                            </div>
-                            <input
-                                id="firstName"
-                                name="firstName"
-                                type="text"
-                                value={displayName}
-                                onChange={(e) => setDisplayName(e.target.value)}
-                                className="block w-full rounded-md border border-border-subtle p-3 pl-10 text-text-primary bg-bg-surface"
-                            />
-                        </div>
+        <Modal isOpen={true} onClose={onClose} title="Edit Member">
+            <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Name Input */}
+                <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                        First Name
+                    </label>
+                    <div className="relative">
+                        <User className="absolute left-3 top-3 w-5 h-5 text-text-tertiary" />
+                        <input
+                            type="text"
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            className="w-full pl-10 p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none transition-all"
+                            placeholder="e.g. Alice"
+                            autoFocus
+                        />
                     </div>
+                </div>
 
-                    {/* Conditionally show Email (read-only) for Parents */}
-                    {member.role === 'Parent' && (
-                        <div className="space-y-1">
-                            <label htmlFor="email" className="block text-sm font-medium text-text-secondary">
-                                Email (Cannot be changed)
-                            </label>
-                            <div className="relative rounded-md">
-                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                    <Mail className="h-5 w-5 text-text-secondary/70" />
-                                </div>
-                                <input
-                                    id="email"
-                                    name="email"
-                                    type="email"
-                                    value={member.familyMemberId.email || 'N/A'}
-                                    disabled
-                                    className="block w-full rounded-md border border-border-subtle p-3 pl-10 text-text-secondary bg-bg-canvas"
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {/* FIX: Show Color Picker for ALL roles */}
-                    <div className="space-y-1">
-                        <label className="block text-sm font-medium text-text-secondary">
-                            Profile Color
-                        </label>
-                        <div className="flex flex-wrap gap-2 p-2 bg-bg-canvas rounded-lg border border-border-subtle">
-                            {availableColors.map((color) => (
-                                <button
-                                    type="button"
-                                    key={color.hex}
-                                    title={color.name}
-                                    onClick={() => setSelectedColor(color.hex)}
-                                    className={`w-8 h-8 rounded-full border-2 transition-all
-                            ${selectedColor === color.hex ? 'border-action-primary ring-2 ring-action-primary/50 scale-110' : 'border-transparent opacity-70 hover:opacity-100'}`}
-                                    style={{ backgroundColor: color.hex }}
-                                >
-                                    {selectedColor === color.hex && <Check className="w-5 h-5 text-white m-auto" />}
-                                </button>
-                            ))}
-                        </div>
+                {/* Role Selection */}
+                <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                        Role
+                    </label>
+                    <div className="flex space-x-4">
+                        <button
+                            type="button"
+                            onClick={() => setRole('Child')}
+                            className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all font-medium ${role === 'Child'
+                                    ? 'border-action-primary bg-action-primary/5 text-action-primary'
+                                    : 'border-border-subtle hover:border-action-primary/50 text-text-secondary'
+                                }`}
+                        >
+                            Child
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setRole('Parent')}
+                            className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all font-medium ${role === 'Parent'
+                                    ? 'border-action-primary bg-action-primary/5 text-action-primary'
+                                    : 'border-border-subtle hover:border-action-primary/50 text-text-secondary'
+                                }`}
+                        >
+                            Parent
+                        </button>
                     </div>
+                </div>
 
-                    {/* Error Display */}
-                    {error && (
-                        <div className="flex items-center text-sm text-signal-alert">
-                            <AlertTriangle className="w-4 h-4 mr-1.5" /> {error}
-                        </div>
-                    )}
+                {/* Color Selection */}
+                <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                        Profile Color
+                    </label>
+                    <div className="flex flex-wrap gap-3">
+                        {PROFILE_COLORS.map((color) => (
+                            <button
+                                key={color.hex}
+                                type="button"
+                                onClick={() => setSelectedColor(color.hex)}
+                                className={`w-10 h-10 rounded-full flex items-center justify-center transition-transform hover:scale-110 ${selectedColor === color.hex ? 'ring-2 ring-offset-2 ring-text-primary scale-110' : ''
+                                    }`}
+                                style={{ backgroundColor: color.hex }}
+                                title={color.name}
+                            >
+                                {selectedColor === color.hex && (
+                                    <Check className="w-5 h-5 text-white drop-shadow-md" />
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                </div>
 
-                    {/* Submit Button */}
+                {/* Error Message */}
+                {error && (
+                    <div className="flex items-center text-sm text-signal-alert bg-signal-alert/10 p-3 rounded-lg">
+                        <AlertTriangle className="w-4 h-4 mr-2 flex-shrink-0" />
+                        {error}
+                    </div>
+                )}
+
+                {/* Actions */}
+                <div className="space-y-3 pt-4 border-t border-border-subtle">
                     <button
                         type="submit"
-                        disabled={isLoading}
-                        className={`w-full flex justify-center items-center rounded-lg py-3 px-4 text-base font-medium shadow-sm 
-                        text-white transition-colors
-                        ${isLoading ? 'bg-action-primary/60' : 'bg-action-primary hover:bg-action-hover'}`}
+                        disabled={isLoading || isDeleting}
+                        className={`w-full flex justify-center items-center py-3 px-4 rounded-lg text-white font-medium transition-all
+                            ${isLoading ? 'bg-action-primary/70 cursor-not-allowed' : 'bg-action-primary hover:bg-action-primary/90 shadow-md hover:shadow-lg'}`}
                     >
-                        {isLoading ? <Loader className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5 mr-2" />}
-                        Save Changes
+                        {isLoading ? <Loader className="w-5 h-5 animate-spin" /> : <><Save className="w-5 h-5 mr-2" /> Save Changes</>}
                     </button>
-                </form>
-            </div>
-        </div>
+
+                    <button
+                        type="button"
+                        onClick={handleDelete}
+                        disabled={isLoading || isDeleting}
+                        className={`w-full flex justify-center items-center py-3 px-4 rounded-lg font-medium transition-all border border-signal-alert text-signal-alert hover:bg-signal-alert/5
+                            ${isDeleting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                        {isDeleting ? <Loader className="w-5 h-5 animate-spin" /> : <><Trash2 className="w-5 h-5 mr-2" /> Remove Member</>}
+                    </button>
+                </div>
+            </form>
+        </Modal>
     );
 };
 

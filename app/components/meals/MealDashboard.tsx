@@ -6,9 +6,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import RecipeList, { IRecipe } from './RecipeList';
-import RestaurantList, { IRestaurant } from './RestaurantList';
-import MealPlanList, { IMealPlan } from './MealPlanList';
+import RecipeList from './RecipeList';
+import RestaurantList from './RestaurantList';
+import MealPlanList from './MealPlanList';
+import { IRecipe, IRestaurant, IMealPlan } from '../../types';
 import { useSession } from '../layout/SessionContext';
 import Loading from '../layout/Loading';
 import { AlertTriangle } from 'lucide-react';

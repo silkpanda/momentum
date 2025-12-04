@@ -9,17 +9,7 @@ import { Plus, Search, MapPin, Phone, Utensils, Pencil } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
 import CreateRestaurantModal from './CreateRestaurantModal';
 import EditRestaurantModal from './EditRestaurantModal';
-
-export interface IRestaurant {
-    _id: string;
-    name: string;
-    cuisine?: string;
-    address?: string;
-    phone?: string;
-    website?: string;
-    rating?: number;
-    priceRange?: '$' | '$$' | '$$$' | '$$$$';
-}
+import { IRestaurant } from '../../types';
 
 interface RestaurantListProps {
     restaurants: IRestaurant[];

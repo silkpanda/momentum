@@ -9,22 +9,7 @@ import { Plus, Calendar, Search, Pencil, Trash } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
 import CreateMealPlanModal from './CreateMealPlanModal';
 import EditMealPlanModal from './EditMealPlanModal';
-import { IRecipe } from './RecipeList';
-import { IRestaurant } from './RestaurantList';
-
-export interface IMealPlan {
-    _id: string;
-    startDate: string;
-    endDate: string;
-    meals: {
-        _id: string;
-        date: string;
-        mealType: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
-        itemType: 'Recipe' | 'Restaurant' | 'Custom';
-        itemId?: { _id: string; name: string; title?: string }; // Populated
-        customTitle?: string;
-    }[];
-}
+import { IMealPlan, IRecipe, IRestaurant } from '../../types';
 
 interface MealPlanListProps {
     mealPlans: IMealPlan[];

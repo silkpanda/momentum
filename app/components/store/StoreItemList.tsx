@@ -12,17 +12,9 @@ import CreateStoreItemModal from './CreateStoreItemModal';
 import EditStoreItemModal from './EditStoreItemModal';
 import DeleteStoreItemModal from './DeleteStoreItemModal';
 import PurchaseItemModal from './PurchaseItemModal';
-import { IHouseholdMemberProfile } from '../members/MemberList';
+import { IHouseholdMemberProfile } from '../../types';
 import StoreItemCard from '../shared/StoreItemCard';
-
-// --- Interface ---
-export interface IStoreItem {
-    _id: string;
-    itemName: string;
-    description: string;
-    cost: number;
-    householdRefId: string;
-}
+import { IStoreItem } from '../../types';
 
 // --- Main Store Item List Component ---
 const StoreItemList: React.FC = () => {

@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import { X, Utensils, MapPin, Phone, DollarSign, Loader, AlertTriangle, Check } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
-import { IRestaurant } from './RestaurantList';
+import { IRestaurant } from '../../types';
 
 interface EditRestaurantModalProps {
     restaurant: IRestaurant;

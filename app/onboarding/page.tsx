@@ -1,0 +1,430 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Calendar, Plus, Check, Loader, AlertTriangle } from 'lucide-react';
+import { PROFILE_COLORS } from '../lib/constants';
+
+interface CalendarItem {
+    id: string;
+    summary: string;
+    description?: string;
+    primary?: boolean;
+}
+
+export default function OnboardingPage() {
+    const router = useRouter();
+    const [step, setStep] = useState<'calendar' | 'calendarPicker' | 'profile'>('calendar');
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [user, setUser] = useState<any>(null);
+
+    // Calendar step state
+    const [calendarChoice, setCalendarChoice] = useState<'sync' | 'create' | null>(null);
+    const [availableCalendars, setAvailableCalendars] = useState<CalendarItem[]>([]);
+    const [selectedCalendarId, setSelectedCalendarId] = useState<string>('');
+    const [loadingCalendars, setLoadingCalendars] = useState(false);
+
+    // Profile step state
+    const [displayName, setDisplayName] = useState('');
+    const [selectedColor, setSelectedColor] = useState(PROFILE_COLORS[0].hex);
+
+    // Load user data on mount
+    useEffect(() => {
+        const loadUserData = async () => {
+            try {
+                const token = localStorage.getItem('momentum_token');
+                if (!token) {
+                    router.push('/login');
+                    return;
+                }
+
+                const response = await fetch('/web-bff/auth/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+
+                if (!response.ok) {
+                    router.push('/login');
+                    return;
+                }
+
+                const data = await response.json();
+                if (data.data?.user) {
+                    setUser(data.data.user);
+                    setDisplayName(data.data.user.firstName || '');
+
+                    // If user already completed onboarding, redirect
+                    if (data.data.user.onboardingCompleted) {
+                        router.push('/family');
+                    }
+                }
+            } catch (err) {
+                console.error('Error loading user data:', err);
+                router.push('/login');
+            }
+        };
+
+        loadUserData();
+    }, [router]);
+
+    const handleCalendarChoice = async (choice: 'sync' | 'create') => {
+        setCalendarChoice(choice);
+        setError(null);
+
+        if (choice === 'sync') {
+            if (!user?._id) {
+                setError('User information not found');
+                return;
+            }
+
+            // Check if user already has calendar tokens
+            setLoadingCalendars(true);
+            try {
+                const token = localStorage.getItem('momentum_token');
+                const response = await fetch('/web-bff/calendar/list', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+
+                if (response.ok) {
+                    // User already has calendar access, show picker
+                    const data = await response.json();
+                    const calendars = data.data?.calendars || [];
+                    setAvailableCalendars(calendars);
+
+                    // Auto-select primary calendar if available
+                    const primaryCalendar = calendars.find((cal: CalendarItem) => cal.primary);
+                    if (primaryCalendar) {
+                        setSelectedCalendarId(primaryCalendar.id);
+                    } else if (calendars.length > 0) {
+                        setSelectedCalendarId(calendars[0].id);
+                    }
+
+                    setStep('calendarPicker');
+                } else if (response.status === 400) {
+                    // User doesn't have calendar access yet, redirect to OAuth
+                    window.location.href = `/web-bff/auth/google/calendar-oauth?userId=${user._id}`;
+                } else {
+                    setError('Failed to check calendar access. Please try again.');
+                }
+            } catch (err) {
+                console.error('Error checking calendar access:', err);
+                // Assume they need OAuth
+                window.location.href = `/web-bff/auth/google/calendar-oauth?userId=${user._id}`;
+            } finally {
+                setLoadingCalendars(false);
+            }
+        } else {
+            // For "create", go straight to profile step
+            setStep('profile');
+        }
+    };
+
+    const handleCalendarSelected = () => {
+        if (!selectedCalendarId) {
+            setError('Please select a calendar');
+            return;
+        }
+        setStep('profile');
+    };
+
+    const handleComplete = async () => {
+        if (!displayName.trim()) {
+            setError('Please enter a display name');
+            return;
+        }
+
+        if (!user?._id) {
+            setError('User information not found');
+            return;
+        }
+
+        if (calendarChoice === 'sync' && !selectedCalendarId) {
+            setError('Please select a calendar');
+            return;
+        }
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const token = localStorage.getItem('momentum_token');
+            const response = await fetch('/web-bff/auth/onboarding/complete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    userId: user._id,
+                    householdId: user.householdId || '',
+                    displayName: displayName.trim(),
+                    profileColor: selectedColor,
+                    calendarChoice: calendarChoice || undefined,
+                    selectedCalendarId: calendarChoice === 'sync' ? selectedCalendarId : undefined,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || data.status === 'fail' || data.status === 'error') {
+                const message = data.message || 'Failed to complete onboarding';
+                setError(message);
+                setIsLoading(false);
+                return;
+            }
+
+            // Success! Redirect to family page
+            router.push('/family');
+
+        } catch (err) {
+            console.error('Onboarding error:', err);
+            setError('A network error occurred. Please try again.');
+            setIsLoading(false);
+        }
+    };
+
+    if (!user) {
+        return (
+            <div className="min-h-screen bg-bg-canvas flex items-center justify-center">
+                <Loader className="w-8 h-8 text-action-primary animate-spin" />
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-bg-canvas flex items-center justify-center p-6">
+            <div className="w-full max-w-2xl">
+                {/* Header */}
+                <div className="text-center mb-8">
+                    <h1 className="text-4xl font-bold text-action-primary mb-2">
+                        Welcome to Momentum!
+                    </h1>
+                    <p className="text-lg text-text-secondary">
+                        Let's get you set up
+                    </p>
+                </div>
+
+                {/* Progress Indicator */}
+                <div className="flex justify-center mb-8">
+                    <div className="flex gap-2">
+                        <div className="w-2 h-2 rounded-full bg-action-primary"></div>
+                        <div className={`w-2 h-2 rounded-full ${step === 'calendarPicker' ? 'bg-action-primary' : 'bg-border-subtle'}`}></div>
+                        <div className={`w-2 h-2 rounded-full ${step === 'profile' ? 'bg-action-primary' : 'bg-border-subtle'}`}></div>
+                    </div>
+                </div>
+
+                {/* Error Message */}
+                {error && (
+                    <div className="mb-6 flex items-center p-4 bg-signal-alert/10 text-signal-alert rounded-lg border border-signal-alert/30">
+                        <AlertTriangle className="w-5 h-5 mr-3" />
+                        <p className="text-sm font-medium">{error}</p>
+                    </div>
+                )}
+
+                {/* Content */}
+                <div className="bg-bg-surface rounded-2xl shadow-lg p-8">
+                    {step === 'calendar' ? (
+                        <div className="space-y-6">
+                            <div className="text-center">
+                                <h2 className="text-2xl font-bold text-text-primary mb-2">
+                                    Calendar Setup
+                                </h2>
+                                <p className="text-text-secondary">
+                                    How would you like to manage your family calendar?
+                                </p>
+                            </div>
+
+                            <div className="space-y-4">
+                                <button
+                                    onClick={() => handleCalendarChoice('sync')}
+                                    disabled={loadingCalendars}
+                                    className={`w-full p-6 rounded-xl border-2 transition-all ${calendarChoice === 'sync'
+                                        ? 'border-action-primary bg-action-primary/5'
+                                        : 'border-border-subtle hover:border-action-primary/50'
+                                        } ${loadingCalendars ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    {loadingCalendars ? (
+                                        <Loader className="w-8 h-8 text-action-primary mx-auto mb-3 animate-spin" />
+                                    ) : (
+                                        <Calendar className="w-8 h-8 text-action-primary mx-auto mb-3" />
+                                    )}
+                                    <h3 className="text-lg font-semibold text-text-primary mb-1">
+                                        Sync Existing Calendar
+                                    </h3>
+                                    <p className="text-sm text-text-secondary">
+                                        Connect to a calendar you already use
+                                    </p>
+                                </button>
+
+                                <button
+                                    onClick={() => handleCalendarChoice('create')}
+                                    disabled={loadingCalendars}
+                                    className={`w-full p-6 rounded-xl border-2 transition-all ${calendarChoice === 'create'
+                                        ? 'border-action-primary bg-action-primary/5'
+                                        : 'border-border-subtle hover:border-action-primary/50'
+                                        } ${loadingCalendars ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    <Plus className="w-8 h-8 text-action-primary mx-auto mb-3" />
+                                    <h3 className="text-lg font-semibold text-text-primary mb-1">
+                                        Create New Calendar
+                                    </h3>
+                                    <p className="text-sm text-text-secondary">
+                                        Start fresh with a new family calendar
+                                    </p>
+                                </button>
+                            </div>
+                        </div>
+                    ) : step === 'calendarPicker' ? (
+                        <div className="space-y-6">
+                            <div className="text-center">
+                                <h2 className="text-2xl font-bold text-text-primary mb-2">
+                                    Select Calendar
+                                </h2>
+                                <p className="text-text-secondary">
+                                    Choose which calendar to sync with Momentum
+                                </p>
+                            </div>
+
+                            <div className="space-y-3 max-h-96 overflow-y-auto">
+                                {availableCalendars.length === 0 ? (
+                                    <p className="text-center text-text-secondary py-8">
+                                        No calendars found. Please try creating a new calendar instead.
+                                    </p>
+                                ) : (
+                                    availableCalendars.map((calendar) => (
+                                        <button
+                                            key={calendar.id}
+                                            onClick={() => setSelectedCalendarId(calendar.id)}
+                                            className={`w-full p-4 rounded-lg border-2 transition-all text-left ${selectedCalendarId === calendar.id
+                                                ? 'border-action-primary bg-action-primary/5'
+                                                : 'border-border-subtle hover:border-action-primary/50'
+                                                }`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <h3 className="font-semibold text-text-primary">
+                                                            {calendar.summary}
+                                                        </h3>
+                                                        {calendar.primary && (
+                                                            <span className="text-xs px-2 py-0.5 bg-action-primary/20 text-action-primary rounded-full">
+                                                                Primary
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {calendar.description && (
+                                                        <p className="text-sm text-text-secondary mt-1">
+                                                            {calendar.description}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                {selectedCalendarId === calendar.id && (
+                                                    <Check className="w-5 h-5 text-action-primary ml-3 flex-shrink-0" />
+                                                )}
+                                            </div>
+                                        </button>
+                                    ))
+                                )}
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setStep('calendar')}
+                                    className="px-6 py-3 text-text-secondary hover:text-text-primary transition-colors"
+                                >
+                                    Back
+                                </button>
+                                <button
+                                    onClick={handleCalendarSelected}
+                                    disabled={!selectedCalendarId}
+                                    className={`flex-1 flex justify-center items-center rounded-lg py-3 px-4 text-base font-medium shadow-sm text-white transition-all duration-200 ${!selectedCalendarId
+                                        ? 'bg-action-primary/60 cursor-not-allowed'
+                                        : 'bg-action-primary hover:bg-action-hover transform hover:scale-[1.005] focus:ring-4 focus:ring-action-primary/50'
+                                        }`}
+                                >
+                                    Continue
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            <div className="text-center">
+                                <h2 className="text-2xl font-bold text-text-primary mb-2">
+                                    Profile Setup
+                                </h2>
+                                <p className="text-text-secondary">
+                                    Customize your profile
+                                </p>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                                        Display Name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={displayName}
+                                        onChange={(e) => setDisplayName(e.target.value)}
+                                        placeholder="e.g., 'Mom' or 'Dad'"
+                                        className="w-full px-4 py-3 bg-bg-canvas border border-border-subtle rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-action-primary"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                                        Your Profile Color
+                                    </label>
+                                    <div className="flex flex-wrap gap-3 p-4 bg-bg-canvas rounded-lg border border-border-subtle">
+                                        {PROFILE_COLORS.map((color) => (
+                                            <button
+                                                key={color.hex}
+                                                type="button"
+                                                onClick={() => setSelectedColor(color.hex)}
+                                                className={`w-10 h-10 rounded-full border-3 transition-all ${selectedColor === color.hex
+                                                    ? 'border-action-primary ring-2 ring-action-primary/50 scale-110'
+                                                    : 'border-transparent opacity-70 hover:opacity-100'
+                                                    }`}
+                                                style={{ backgroundColor: color.hex }}
+                                            >
+                                                {selectedColor === color.hex && (
+                                                    <Check className="w-5 h-5 text-white m-auto" />
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-3 pt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setStep(calendarChoice === 'sync' ? 'calendarPicker' : 'calendar')}
+                                        className="px-6 py-3 text-text-secondary hover:text-text-primary transition-colors"
+                                    >
+                                        Back
+                                    </button>
+                                    <button
+                                        onClick={handleComplete}
+                                        disabled={isLoading}
+                                        className={`flex-1 flex justify-center items-center rounded-lg py-3 px-4 text-base font-medium shadow-sm text-white transition-all duration-200 ${isLoading
+                                            ? 'bg-action-primary/60 cursor-not-allowed'
+                                            : 'bg-action-primary hover:bg-action-hover transform hover:scale-[1.005] focus:ring-4 focus:ring-action-primary/50'
+                                            }`}
+                                    >
+                                        {isLoading && <Loader className="w-5 h-5 mr-2 animate-spin" />}
+                                        Complete Setup
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
