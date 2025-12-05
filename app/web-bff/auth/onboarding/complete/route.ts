@@ -13,11 +13,33 @@ import { API_BASE_URL } from '@/lib/config';
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { userId, householdId, displayName, profileColor, calendarChoice } = body;
+        const {
+            userId,
+            householdId,
+            householdName,
+            inviteCode,
+            displayName,
+            profileColor,
+            calendarChoice,
+            selectedCalendarId,
+            pin
+        } = body;
 
-        if (!userId || !householdId || !displayName || !profileColor) {
+        console.log('[BFF] Onboarding complete request:', {
+            userId,
+            householdId,
+            householdName: householdName || 'not provided',
+            inviteCode: inviteCode || 'not provided',
+            displayName,
+            profileColor,
+            calendarChoice,
+            selectedCalendarId: selectedCalendarId || 'not provided',
+            hasPin: !!pin
+        });
+
+        if (!userId || !householdId || !displayName || !profileColor || !pin) {
             return NextResponse.json(
-                { message: 'Missing required fields: userId, householdId, displayName, profileColor' },
+                { message: 'Missing required fields: userId, householdId, displayName, profileColor, pin' },
                 { status: 400 }
             );
         }
@@ -41,27 +63,36 @@ export async function POST(request: Request) {
             body: JSON.stringify({
                 userId,
                 householdId,
+                householdName,
+                inviteCode,
                 displayName,
                 profileColor,
                 calendarChoice,
+                selectedCalendarId,
+                pin,
             }),
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
+            console.error('[BFF] Onboarding completion failed:', {
+                status: response.status,
+                errorData
+            });
             return NextResponse.json(
-                { message: errorData.message || 'Failed to complete onboarding' },
+                { message: errorData.message || 'Failed to complete onboarding', error: errorData },
                 { status: response.status }
             );
         }
 
         const data = await response.json();
+        console.log('[BFF] Onboarding completed successfully');
 
         // Return the updated user and household data
         return NextResponse.json(data);
 
     } catch (err: any) {
-        console.error('Onboarding completion error:', err);
+        console.error('[BFF] Onboarding completion error:', err);
         return NextResponse.json(
             { message: 'Failed to complete onboarding', error: err.message },
             { status: 500 }
