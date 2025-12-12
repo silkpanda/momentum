@@ -14,6 +14,7 @@ interface FamilyData {
     recipes: IRecipe[];
     loading: boolean;
     error: string | null;
+    addTask: (task: ITask) => void;
     refresh: () => Promise<void>;
 }
 
@@ -27,6 +28,10 @@ export const useFamilyData = (): FamilyData => {
     const [recipes, setRecipes] = useState<IRecipe[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    const addTask = useCallback((task: ITask) => {
+        setTasks(prev => [task, ...prev]);
+    }, []);
 
     const fetchData = useCallback(async () => {
         if (!token || !householdId) {
@@ -72,7 +77,13 @@ export const useFamilyData = (): FamilyData => {
     // WebSocket Listeners
     useSocketEvent<TaskUpdatedEvent>(SOCKET_EVENTS.TASK_UPDATED, (data) => {
         if (data.type === 'create' && data.task) {
-            setTasks(prev => [data.task!, ...prev]);
+            // Check if task already exists to avoid duplicates from optimistic updates
+            setTasks(prev => {
+                if (prev.some(t => t._id === data.task!._id)) {
+                    return prev;
+                }
+                return [data.task!, ...prev];
+            });
         } else if (data.type === 'update' && data.task) {
             setTasks(prev => prev.map(t => t._id === data.task!._id ? data.task! : t));
             if (data.memberUpdate) {
@@ -130,6 +141,7 @@ export const useFamilyData = (): FamilyData => {
         recipes,
         loading,
         error,
+        addTask,
         refresh: fetchData
     };
 };

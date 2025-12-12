@@ -31,7 +31,7 @@ import MealPlannerModal from '../meals/MealPlannerModal';
 
 const BentoDashboard: React.FC = () => {
     const { user, householdId } = useSession();
-    const { members, tasks, storeItems, loading } = useFamilyData();
+    const { members, tasks, storeItems, loading, addTask } = useFamilyData();
 
     // Modal states
     const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
@@ -215,9 +215,9 @@ const BentoDashboard: React.FC = () => {
                 <CreateTaskModal
                     householdMembers={members}
                     onClose={() => setIsTaskModalOpen(false)}
-                    onTaskCreated={() => {
+                    onTaskCreated={(newTask) => {
+                        addTask(newTask);
                         setIsTaskModalOpen(false);
-                        // Data will refresh via WebSocket
                     }}
                 />
             )}
