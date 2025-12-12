@@ -51,33 +51,54 @@ export default function OnboardingPage() {
     // Load user data on mount
     useEffect(() => {
         const loadUserData = async () => {
-            try {
-                const token = localStorage.getItem('momentum_token');
-                if (!token) {
-                    router.push('/login');
-                    return;
+            let retries = 0;
+            const maxRetries = 3;
+
+            while (retries < maxRetries) {
+                try {
+                    const token = localStorage.getItem('momentum_token');
+                    if (!token) {
+                        router.push('/login');
+                        return;
+                    }
+
+                    const response = await fetch('/web-bff/auth/me', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                        },
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.status === 'success') {
+                        setUser(data.data.user);
+                        setHouseholdId(data.data.householdId || '');
+                        setDisplayName(data.data.user.firstName || '');
+                        return; // Success!
+                    }
+
+                    // If we get here, response was not ok
+                    console.warn(`Load user attempt ${retries + 1} failed:`, data.message);
+
+                    // Only retry if it's a 404 (Household not found) or 500 series
+                    // If it's 401 (Unauthorized), the token is bad, so don't retry
+                    if (response.status === 401) {
+                        router.push('/login');
+                        return;
+                    }
+
+                } catch (err) {
+                    console.error(`Error loading user data (attempt ${retries + 1}):`, err);
                 }
 
-                const response = await fetch('/web-bff/auth/me', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                    },
-                });
-
-                const data = await response.json();
-
-                if (!response.ok || data.status === 'fail' || data.status === 'error') {
-                    router.push('/login');
-                    return;
+                retries++;
+                if (retries < maxRetries) {
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s
                 }
-
-                setUser(data.data.user);
-                setHouseholdId(data.data.householdId || '');
-                setDisplayName(data.data.user.firstName || '');
-            } catch (err) {
-                console.error('Error loading user data:', err);
-                router.push('/login');
             }
+
+            // If we fall through here, all retries failed
+            router.push('/login');
         };
 
         loadUserData();
