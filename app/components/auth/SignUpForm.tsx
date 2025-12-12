@@ -24,12 +24,15 @@ const SignUpForm: React.FC = () => {
         lastName: '',
         email: '',
         password: '',
-        householdName: '',
-        userDisplayName: '',
-        inviteCode: '',
+        // Removed unused fields from state initializers to keep it clean, 
+        // though interface might technically still have them if I don't update it (which I should).
+        // For safe replacing, I will stick to what is needed.
+        householdName: '', // Kept empty
+        userDisplayName: '', // Kept empty
+        inviteCode: '', // Kept empty
     });
-    const [hasInviteCode, setHasInviteCode] = useState(false);
-    const [selectedColor, setSelectedColor] = useState<string>(PROFILE_COLORS[0].hex);
+    // Removed hasInviteCode and selectedColor state as they are no longer UI driven
+
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
@@ -45,23 +48,11 @@ const SignUpForm: React.FC = () => {
         setError(null);
         setIsLoading(true);
 
+        // Validation - Minimal
         if (
-            !formData.firstName || !formData.lastName || !formData.email ||
-            !formData.password || !formData.userDisplayName
+            !formData.firstName || !formData.lastName || !formData.email || !formData.password
         ) {
             setError('Please fill in all fields.');
-            setIsLoading(false);
-            return;
-        }
-
-        if (!hasInviteCode && !formData.householdName) {
-            setError('Please enter a household name.');
-            setIsLoading(false);
-            return;
-        }
-
-        if (hasInviteCode && !formData.inviteCode) {
-            setError('Please enter an invite code.');
             setIsLoading(false);
             return;
         }
@@ -73,16 +64,14 @@ const SignUpForm: React.FC = () => {
         }
 
         try {
+            // Simplified Payload
             const payload = {
-                ...formData,
-                userProfileColor: selectedColor,
+                firstName: formData.firstName,
+                lastName: formData.lastName,
+                email: formData.email,
+                password: formData.password,
+                // Backend will handle defaults for display name and household
             };
-
-            if (hasInviteCode) {
-                delete (payload as any).householdName;
-            } else {
-                delete (payload as any).inviteCode;
-            }
 
             const response = await fetch('/web-bff/auth/signup', {
                 method: 'POST',
@@ -107,9 +96,10 @@ const SignUpForm: React.FC = () => {
                 localStorage.setItem('momentum_token', data.token);
             }
 
+            // Redirect to Onboarding
             setTimeout(() => {
-                router.push('/family');
-            }, 1500);
+                router.push('/onboarding');
+            }, 1000);
 
         } catch (err) {
             console.error('Network or unexpected error:', err);
@@ -121,7 +111,7 @@ const SignUpForm: React.FC = () => {
     return (
         <div className="w-full max-w-lg">
             <h2 className="text-3xl font-semibold text-text-primary text-center mb-6">
-                {hasInviteCode ? 'Join a Household' : 'Create Your Household'}
+                Create Your Account
             </h2>
 
             {error && (
@@ -133,7 +123,7 @@ const SignUpForm: React.FC = () => {
             {success && (
                 <div className="mb-4 flex items-center p-4 bg-signal-success/10 text-signal-success rounded-lg border border-signal-success/30">
                     <CheckCircle className="w-5 h-5 mr-3" />
-                    <p className="text-sm font-medium">Success! Redirecting you now...</p>
+                    <p className="text-sm font-medium">Success! Redirecting you to setup...</p>
                 </div>
             )}
 
@@ -156,7 +146,7 @@ const SignUpForm: React.FC = () => {
                         id="firstName"
                         name="firstName"
                         type="text"
-                        label="Your First Name"
+                        label="First Name"
                         Icon={User}
                         placeholder="e.g., Jessica"
                         value={formData.firstName}
@@ -167,67 +157,13 @@ const SignUpForm: React.FC = () => {
                         id="lastName"
                         name="lastName"
                         type="text"
-                        label="Your Last Name"
+                        label="Last Name"
                         Icon={User}
                         placeholder="e.g., Smith"
                         value={formData.lastName}
                         onChange={handleInputChange}
                     />
                 </div>
-
-                {/* Invite Code Toggle */}
-                <div className="flex items-center justify-between p-3 bg-bg-canvas rounded-lg border border-border-subtle">
-                    <span className="text-sm font-medium text-text-primary">Joining an existing household?</span>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setHasInviteCode(!hasInviteCode);
-                            if (!hasInviteCode) setFormData(prev => ({ ...prev, householdName: '' }));
-                            else setFormData(prev => ({ ...prev, inviteCode: '' }));
-                        }}
-                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${hasInviteCode ? 'bg-action-primary' : 'bg-border-subtle'}`}
-                    >
-                        <span
-                            aria-hidden="true"
-                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${hasInviteCode ? 'translate-x-5' : 'translate-x-0'}`}
-                        />
-                    </button>
-                </div>
-
-                {hasInviteCode ? (
-                    <FormInput
-                        id="inviteCode"
-                        name="inviteCode"
-                        type="text"
-                        label="Invite Code"
-                        Icon={Home}
-                        placeholder="e.g., A1B2C3"
-                        value={formData.inviteCode || ''}
-                        onChange={handleInputChange}
-                    />
-                ) : (
-                    <FormInput
-                        id="householdName"
-                        name="householdName"
-                        type="text"
-                        label="Household Name"
-                        Icon={Home}
-                        placeholder="e.g., 'The Smith Family'"
-                        value={formData.householdName}
-                        onChange={handleInputChange}
-                    />
-                )}
-
-                <FormInput
-                    id="userDisplayName"
-                    name="userDisplayName"
-                    type="text"
-                    label="Your Display Name"
-                    Icon={User}
-                    placeholder="e.g., 'Mom' or 'Jessica'"
-                    value={formData.userDisplayName}
-                    onChange={handleInputChange}
-                />
 
                 <FormInput
                     id="email"
@@ -251,27 +187,6 @@ const SignUpForm: React.FC = () => {
                     onChange={handleInputChange}
                 />
 
-                <div className="space-y-1">
-                    <label className="block text-sm font-medium text-text-secondary">
-                        Your Profile Color
-                    </label>
-                    <div className="flex flex-wrap gap-2 p-2 bg-bg-canvas rounded-lg border border-border-subtle">
-                        {PROFILE_COLORS.map((color) => (
-                            <button
-                                type="button"
-                                key={color.hex}
-                                title={color.name}
-                                onClick={() => setSelectedColor(color.hex)}
-                                className={`w-8 h-8 rounded-full border-2 transition-all
-                          ${selectedColor === color.hex ? 'border-action-primary ring-2 ring-action-primary/50 scale-110' : 'border-transparent opacity-70 hover:opacity-100'}`}
-                                style={{ backgroundColor: color.hex }}
-                            >
-                                {selectedColor === color.hex && <CheckIcon className="w-5 h-5 text-white m-auto" />}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
                 <div>
                     <button
                         type="submit"
@@ -281,8 +196,11 @@ const SignUpForm: React.FC = () => {
                         ${isLoading || success ? 'bg-action-primary/60 cursor-not-allowed' : 'bg-action-primary hover:bg-action-hover transform hover:scale-[1.005] focus:ring-4 focus:ring-action-primary/50'}`}
                     >
                         {isLoading && <Loader className="w-5 h-5 mr-2" />}
-                        {success ? (hasInviteCode ? 'Joining...' : 'Signing Up...') : (hasInviteCode ? 'Join Household' : 'Sign Up')}
+                        {success ? 'Signing Up...' : 'Create Account'}
                     </button>
+                    <p className="mt-4 text-center text-xs text-text-secondary">
+                        By signing up, you agree to our Terms of Service and Privacy Policy.
+                    </p>
                 </div>
             </form>
 
