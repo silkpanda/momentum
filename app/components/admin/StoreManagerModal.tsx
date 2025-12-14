@@ -7,7 +7,9 @@ import { useSession } from '../layout/SessionContext';
 import { useFamilyData } from '../../../lib/hooks/useFamilyData';
 import CreateStoreItemModal from '../store/CreateStoreItemModal';
 import EditStoreItemModal from '../store/EditStoreItemModal';
-import { IStoreItem } from '../store/StoreItemList';
+import { IStoreItem } from '../../types';
+import AlertModal from '../shared/AlertModal';
+import ConfirmModal from '../shared/ConfirmModal';
 
 interface StoreManagerModalProps {
     onClose: () => void;
@@ -23,13 +25,26 @@ const FILTERS: { id: FilterType; label: string }[] = [
 
 const StoreManagerModal: React.FC<StoreManagerModalProps> = ({ onClose }) => {
     const { token } = useSession();
-    const { storeItems } = useFamilyData();
+    const { storeItems, refresh } = useFamilyData();
 
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingItem, setEditingItem] = useState<IStoreItem | null>(null);
     const [showEditModal, setShowEditModal] = useState(false);
+
+    // Modal States
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean, title: string, message: string, variant: 'info' | 'error' | 'success' }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        variant: 'info'
+    });
+
+    const showAlert = (title: string, message: string, variant: 'info' | 'error' | 'success' = 'info') => {
+        setAlertConfig({ isOpen: true, title, message, variant });
+    };
 
     // Filter and search items
     const filteredItems = useMemo(() => {
@@ -48,13 +63,11 @@ const StoreManagerModal: React.FC<StoreManagerModalProps> = ({ onClose }) => {
             .sort((a, b) => a.itemName.localeCompare(b.itemName));
     }, [storeItems, activeFilter, searchQuery]);
 
-    const handleDeleteItem = async (item: IStoreItem) => {
-        if (!confirm(`Are you sure you want to delete "${item.itemName}"?`)) {
-            return;
-        }
+    const handleDeleteItem = async () => {
+        if (!confirmDeleteId) return;
 
         try {
-            const response = await fetch(`/web-bff/store/${item._id}`, {
+            const response = await fetch(`/web-bff/store/${confirmDeleteId}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -65,10 +78,12 @@ const StoreManagerModal: React.FC<StoreManagerModalProps> = ({ onClose }) => {
                 throw new Error('Failed to delete item');
             }
 
-            // Data will refresh via WebSocket
+            await refresh();
+            setConfirmDeleteId(null);
+            showAlert('Success', 'Item deleted successfully', 'success');
         } catch (error) {
             console.error('Delete error:', error);
-            alert('Failed to delete item');
+            showAlert('Error', 'Failed to delete item', 'error');
         }
     };
 
@@ -126,7 +141,7 @@ const StoreManagerModal: React.FC<StoreManagerModalProps> = ({ onClose }) => {
                             <span className="text-sm font-medium">Edit</span>
                         </button>
                         <button
-                            onClick={() => handleDeleteItem(item)}
+                            onClick={() => setConfirmDeleteId(item._id)}
                             className="flex items-center justify-center py-2 px-3 bg-signal-alert/10 text-signal-alert rounded-lg hover:bg-signal-alert/20 transition-colors"
                         >
                             <Trash2 className="w-4 h-4" />
@@ -139,6 +154,24 @@ const StoreManagerModal: React.FC<StoreManagerModalProps> = ({ onClose }) => {
 
     return (
         <>
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                variant={alertConfig.variant}
+            />
+
+            <ConfirmModal
+                isOpen={!!confirmDeleteId}
+                onClose={() => setConfirmDeleteId(null)}
+                onConfirm={handleDeleteItem}
+                title="Delete Item"
+                message="Are you sure you want to delete this item? This cannot be undone."
+                confirmText="Delete"
+                variant="danger"
+            />
+
             <Modal isOpen={true} onClose={onClose} title="Store Manager">
                 <div className="space-y-4">
                     {/* Header Actions */}
@@ -182,8 +215,8 @@ const StoreManagerModal: React.FC<StoreManagerModalProps> = ({ onClose }) => {
                                 key={filter.id}
                                 onClick={() => setActiveFilter(filter.id)}
                                 className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${activeFilter === filter.id
-                                        ? 'bg-action-primary text-white'
-                                        : 'bg-bg-canvas text-text-secondary hover:bg-border-subtle'
+                                    ? 'bg-action-primary text-white'
+                                    : 'bg-bg-canvas text-text-secondary hover:bg-border-subtle'
                                     }`}
                             >
                                 {filter.label}
@@ -216,9 +249,9 @@ const StoreManagerModal: React.FC<StoreManagerModalProps> = ({ onClose }) => {
             {showCreateModal && (
                 <CreateStoreItemModal
                     onClose={() => setShowCreateModal(false)}
-                    onItemCreated={() => {
+                    onItemCreated={async () => {
                         setShowCreateModal(false);
-                        // Data will refresh via WebSocket
+                        await refresh();
                     }}
                 />
             )}
@@ -230,10 +263,10 @@ const StoreManagerModal: React.FC<StoreManagerModalProps> = ({ onClose }) => {
                         setShowEditModal(false);
                         setEditingItem(null);
                     }}
-                    onItemUpdated={() => {
+                    onItemUpdated={async () => {
                         setShowEditModal(false);
                         setEditingItem(null);
-                        // Data will refresh via WebSocket
+                        await refresh();
                     }}
                     item={editingItem}
                 />

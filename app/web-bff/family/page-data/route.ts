@@ -45,7 +45,7 @@ export async function GET() {
         }
 
         // 2. Make parallel calls to the internal 'momentum-api' with the householdId
-        const [householdResponse, taskResponse, questResponse, storeResponse, mealPlansResponse, recipesResponse] = await Promise.all([
+        const [householdResponse, taskResponse, questResponse, storeResponse, mealPlansResponse, recipesResponse, restaurantsResponse] = await Promise.all([
             fetch(`${API_BASE_URL}/households/${householdId}`, {
                 headers: { 'Authorization': authorization }
             }),
@@ -54,6 +54,7 @@ export async function GET() {
             fetch(STORE_API_URL, { headers: { 'Authorization': authorization } }),
             fetch(`${API_BASE_URL}/meals/plans`, { headers: { 'Authorization': authorization } }),
             fetch(`${API_BASE_URL}/meals/recipes`, { headers: { 'Authorization': authorization } }),
+            fetch(`${API_BASE_URL}/meals/restaurants`, { headers: { 'Authorization': authorization } }),
         ]);
 
         // 3. Check all responses
@@ -68,6 +69,7 @@ export async function GET() {
         const storeData = await storeResponse.json();
         const mealPlansData = mealPlansResponse.ok ? await mealPlansResponse.json() : { data: { mealPlans: [] } };
         const recipesData = recipesResponse.ok ? await recipesResponse.json() : { data: { recipes: [] } };
+        const restaurantsData = restaurantsResponse.ok ? await restaurantsResponse.json() : { data: { restaurants: [] } };
 
         // 5. Populate task assignments with member details
         const memberProfiles = householdData.data.memberProfiles || [];
@@ -84,6 +86,7 @@ export async function GET() {
             storeItems: storeData.data.storeItems || [],
             mealPlans: mealPlansData.data.mealPlans || [],
             recipes: recipesData.data.recipes || [],
+            restaurants: restaurantsData.data.restaurants || [],
         });
 
     } catch (err: any) {

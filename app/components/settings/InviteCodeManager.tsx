@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, Copy, Check } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
+import ConfirmModal from '../shared/ConfirmModal';
 
 export default function InviteCodeManager() {
     const { token, householdId } = useSession();
@@ -10,6 +11,7 @@ export default function InviteCodeManager() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
+    const [isConfirmRegenerateOpen, setIsConfirmRegenerateOpen] = useState(false);
 
     const fetchInviteCode = async () => {
         if (!token || !householdId) return;
@@ -30,7 +32,6 @@ export default function InviteCodeManager() {
 
     const regenerateCode = async () => {
         if (!token || !householdId) return;
-        if (!confirm('Are you sure? The old code will stop working immediately.')) return;
 
         setLoading(true);
         try {
@@ -45,6 +46,7 @@ export default function InviteCodeManager() {
             setError(err.message);
         } finally {
             setLoading(false);
+            setIsConfirmRegenerateOpen(false);
         }
     };
 
@@ -64,6 +66,16 @@ export default function InviteCodeManager() {
 
     return (
         <div className="bg-bg-surface p-6 rounded-xl border border-border-subtle shadow-sm mt-6">
+            <ConfirmModal
+                isOpen={isConfirmRegenerateOpen}
+                onClose={() => setIsConfirmRegenerateOpen(false)}
+                onConfirm={regenerateCode}
+                title="Regenerate Invite Code"
+                message="Are you sure? The old code will stop working immediately."
+                confirmText="Regenerate"
+                variant="danger"
+            />
+
             <h3 className="text-lg font-semibold text-text-primary mb-4">Household Invite Code</h3>
             <p className="text-text-secondary text-sm mb-4">
                 Share this code with family members to let them join your household.
@@ -92,7 +104,7 @@ export default function InviteCodeManager() {
                 </button>
 
                 <button
-                    onClick={regenerateCode}
+                    onClick={() => setIsConfirmRegenerateOpen(true)}
                     disabled={loading}
                     className="p-3 text-text-secondary hover:text-signal-alert hover:bg-signal-alert/10 rounded-lg transition-colors"
                     title="Regenerate code"

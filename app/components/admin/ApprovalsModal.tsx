@@ -6,6 +6,8 @@ import Modal from '../shared/Modal';
 import { ITask, IHouseholdMemberProfile } from '../../types';
 import { useSession } from '../layout/SessionContext';
 import { useFamilyData } from '../../../lib/hooks/useFamilyData';
+import AlertModal from '../shared/AlertModal';
+import ConfirmModal from '../shared/ConfirmModal';
 
 interface ApprovalsModalProps {
     onClose: () => void;
@@ -15,6 +17,19 @@ const ApprovalsModal: React.FC<ApprovalsModalProps> = ({ onClose }) => {
     const { token } = useSession();
     const { tasks, members } = useFamilyData();
     const [isProcessing, setIsProcessing] = useState(false);
+
+    // Modal States
+    const [confirmRejectId, setConfirmRejectId] = useState<string | null>(null);
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean, title: string, message: string, variant: 'info' | 'error' | 'success' }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        variant: 'info'
+    });
+
+    const showAlert = (title: string, message: string, variant: 'info' | 'error' | 'success' = 'info') => {
+        setAlertConfig({ isOpen: true, title, message, variant });
+    };
 
     // Get pending tasks (status is PendingApproval)
     const pendingTasks = tasks.filter(t => t.status === 'PendingApproval');
@@ -43,23 +58,19 @@ const ApprovalsModal: React.FC<ApprovalsModalProps> = ({ onClose }) => {
             }
         } catch (error) {
             console.error('Approve error:', error);
-            alert('Failed to approve task');
+            showAlert('Error', 'Failed to approve task', 'error');
         } finally {
             setIsProcessing(false);
         }
     };
 
-    const handleReject = async (taskId: string) => {
-        if (isProcessing) return;
-
-        if (!confirm('Are you sure you want to reject this task? The child will need to complete it again.')) {
-            return;
-        }
+    const handleReject = async () => {
+        if (isProcessing || !confirmRejectId) return;
 
         setIsProcessing(true);
 
         try {
-            const response = await fetch(`/web-bff/tasks/${taskId}`, {
+            const response = await fetch(`/web-bff/tasks/${confirmRejectId}`, {
                 method: 'PATCH',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -77,9 +88,11 @@ const ApprovalsModal: React.FC<ApprovalsModalProps> = ({ onClose }) => {
             }
 
             // Data will refresh via WebSocket
+            setConfirmRejectId(null);
+            showAlert('Success', 'Task rejected. It has been moved back to pending list.', 'success');
         } catch (error) {
             console.error('Reject error:', error);
-            alert('Failed to reject task');
+            showAlert('Error', 'Failed to reject task', 'error');
         } finally {
             setIsProcessing(false);
         }
@@ -138,7 +151,7 @@ const ApprovalsModal: React.FC<ApprovalsModalProps> = ({ onClose }) => {
                 {/* Action Buttons */}
                 <div className="flex space-x-3">
                     <button
-                        onClick={() => handleReject(task._id)}
+                        onClick={() => setConfirmRejectId(task._id)}
                         disabled={isProcessing}
                         className="flex-1 flex items-center justify-center space-x-2 py-3 px-4 bg-signal-alert text-white rounded-lg font-semibold hover:bg-red-600 transition-colors disabled:opacity-50"
                     >
@@ -160,6 +173,24 @@ const ApprovalsModal: React.FC<ApprovalsModalProps> = ({ onClose }) => {
 
     return (
         <Modal isOpen={true} onClose={onClose} title="Approvals">
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                variant={alertConfig.variant}
+            />
+
+            <ConfirmModal
+                isOpen={!!confirmRejectId}
+                onClose={() => setConfirmRejectId(null)}
+                onConfirm={handleReject}
+                title="Reject Task"
+                message="Are you sure you want to reject this task? The child will need to complete it again."
+                confirmText="Reject"
+                variant="danger"
+            />
+
             <div className="space-y-4">
                 <p className="text-sm text-text-secondary">
                     Review and approve completed tasks

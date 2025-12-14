@@ -8,6 +8,8 @@ import { useFamilyData } from '../../../lib/hooks/useFamilyData';
 import EditTaskModal from '../tasks/EditTaskModal';
 import CreateTaskModal from '../tasks/CreateTaskModal';
 import { ITask } from '../../types';
+import AlertModal from '../shared/AlertModal';
+import ConfirmModal from '../shared/ConfirmModal';
 
 interface TaskManagerModalProps {
     onClose: () => void;
@@ -24,7 +26,7 @@ const FILTERS: { id: FilterType; label: string }[] = [
 
 const TaskManagerModal: React.FC<TaskManagerModalProps> = ({ onClose }) => {
     const { token } = useSession();
-    const { tasks, members } = useFamilyData();
+    const { tasks, members, addTask, refresh } = useFamilyData();
 
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
@@ -32,6 +34,20 @@ const TaskManagerModal: React.FC<TaskManagerModalProps> = ({ onClose }) => {
     const [editingTask, setEditingTask] = useState<ITask | null>(null);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
+
+    // Modal States
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [confirmBatchDeleteOpen, setConfirmBatchDeleteOpen] = useState(false);
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean, title: string, message: string, variant: 'info' | 'error' | 'success' }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        variant: 'info'
+    });
+
+    const showAlert = (title: string, message: string, variant: 'info' | 'error' | 'success' = 'info') => {
+        setAlertConfig({ isOpen: true, title, message, variant });
+    };
 
     // Filter and search tasks
     const filteredTasks = useMemo(() => {
@@ -51,7 +67,9 @@ const TaskManagerModal: React.FC<TaskManagerModalProps> = ({ onClose }) => {
             .sort((a, b) => {
                 // Sort: Pending Approval first, then Pending, then Completed
                 const statusOrder: Record<string, number> = { PendingApproval: 0, Pending: 1, Completed: 2 };
-                return (statusOrder[a.status] || 3) - (statusOrder[b.status] || 3);
+                const rankA = statusOrder[a.status || ''] ?? 3;
+                const rankB = statusOrder[b.status || ''] ?? 3;
+                return rankA - rankB;
             });
     }, [tasks, activeFilter, searchQuery]);
 
@@ -76,19 +94,16 @@ const TaskManagerModal: React.FC<TaskManagerModalProps> = ({ onClose }) => {
                 )
             );
             clearSelection();
-            alert(`Approved ${selectedTasks.length} task(s)!`);
+            refresh();
+            showAlert('Success', `Approved ${selectedTasks.length} task(s)!`, 'success');
         } catch (error) {
             console.error('Batch approve error:', error);
-            alert('Failed to approve some tasks');
+            showAlert('Error', 'Failed to approve some tasks', 'error');
         }
     };
 
     const handleBatchDelete = async () => {
         if (selectedTasks.length === 0) return;
-
-        if (!confirm(`Are you sure you want to delete ${selectedTasks.length} task(s)?`)) {
-            return;
-        }
 
         try {
             await Promise.all(
@@ -100,10 +115,12 @@ const TaskManagerModal: React.FC<TaskManagerModalProps> = ({ onClose }) => {
                 )
             );
             clearSelection();
-            alert('Tasks deleted successfully');
+            setConfirmBatchDeleteOpen(false);
+            refresh();
+            showAlert('Success', 'Tasks deleted successfully', 'success');
         } catch (error) {
             console.error('Batch delete error:', error);
-            alert('Failed to delete some tasks');
+            showAlert('Error', 'Failed to delete some tasks', 'error');
         }
     };
 
@@ -113,25 +130,26 @@ const TaskManagerModal: React.FC<TaskManagerModalProps> = ({ onClose }) => {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+            refresh();
         } catch (error) {
             console.error('Approve error:', error);
-            alert('Failed to approve task');
+            showAlert('Error', 'Failed to approve task', 'error');
         }
     };
 
-    const handleDeleteTask = async (taskId: string, taskTitle: string) => {
-        if (!confirm(`Are you sure you want to delete "${taskTitle}"?`)) {
-            return;
-        }
+    const handleDeleteTask = async () => {
+        if (!confirmDeleteId) return;
 
         try {
-            await fetch(`/web-bff/tasks/${taskId}`, {
+            await fetch(`/web-bff/tasks/${confirmDeleteId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+            setConfirmDeleteId(null);
+            refresh();
         } catch (error) {
             console.error('Delete error:', error);
-            alert('Failed to delete task');
+            showAlert('Error', 'Failed to delete task', 'error');
         }
     };
 
@@ -153,7 +171,7 @@ const TaskManagerModal: React.FC<TaskManagerModalProps> = ({ onClose }) => {
     const renderTask = (task: ITask) => {
         const isSelected = selectedTasks.includes(task._id);
         const assignedMember = members.find((m) =>
-            task.assignedTo?.some(a => a._id === m._id || a._id === m.familyMemberId)
+            task.assignedTo?.some(a => a._id === m._id || a._id === m.familyMemberId._id)
         );
 
         return (
@@ -166,8 +184,8 @@ const TaskManagerModal: React.FC<TaskManagerModalProps> = ({ onClose }) => {
                 <button
                     onClick={() => toggleTaskSelection(task._id)}
                     className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${isSelected
-                            ? 'bg-action-primary border-action-primary'
-                            : 'border-border-subtle hover:border-action-primary'
+                        ? 'bg-action-primary border-action-primary'
+                        : 'border-border-subtle hover:border-action-primary'
                         }`}
                 >
                     {isSelected && <CheckCircle className="w-4 h-4 text-white" />}
@@ -188,8 +206,8 @@ const TaskManagerModal: React.FC<TaskManagerModalProps> = ({ onClose }) => {
                 </button>
 
                 {/* Status Badge */}
-                <span className={`px-3 py-1 rounded-lg text-white text-xs font-semibold ${getStatusColor(task.status)}`}>
-                    {getStatusLabel(task.status)}
+                <span className={`px-3 py-1 rounded-lg text-white text-xs font-semibold ${getStatusColor(task.status || '')}`}>
+                    {getStatusLabel(task.status || '')}
                 </span>
 
                 {/* Quick Actions */}
@@ -212,7 +230,7 @@ const TaskManagerModal: React.FC<TaskManagerModalProps> = ({ onClose }) => {
                         <Edit2 className="w-4 h-4 text-white" />
                     </button>
                     <button
-                        onClick={() => handleDeleteTask(task._id, task.title)}
+                        onClick={() => setConfirmDeleteId(task._id)}
                         className="w-8 h-8 flex items-center justify-center bg-signal-alert rounded-lg hover:bg-red-600 transition-colors"
                     >
                         <Trash2 className="w-4 h-4 text-white" />
@@ -224,6 +242,34 @@ const TaskManagerModal: React.FC<TaskManagerModalProps> = ({ onClose }) => {
 
     return (
         <>
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                variant={alertConfig.variant}
+            />
+
+            <ConfirmModal
+                isOpen={!!confirmDeleteId}
+                onClose={() => setConfirmDeleteId(null)}
+                onConfirm={handleDeleteTask}
+                title="Delete Task"
+                message="Are you sure you want to delete this task? This cannot be undone."
+                confirmText="Delete"
+                variant="danger"
+            />
+
+            <ConfirmModal
+                isOpen={confirmBatchDeleteOpen}
+                onClose={() => setConfirmBatchDeleteOpen(false)}
+                onConfirm={handleBatchDelete}
+                title="Delete Tasks"
+                message={`Are you sure you want to delete ${selectedTasks.length} task(s)? This cannot be undone.`}
+                confirmText="Delete All"
+                variant="danger"
+            />
+
             <Modal isOpen={true} onClose={onClose} title="Task Manager">
                 <div className="space-y-4">
                     {/* Header Actions */}
@@ -267,8 +313,8 @@ const TaskManagerModal: React.FC<TaskManagerModalProps> = ({ onClose }) => {
                                 key={filter.id}
                                 onClick={() => setActiveFilter(filter.id)}
                                 className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${activeFilter === filter.id
-                                        ? 'bg-action-primary text-white'
-                                        : 'bg-bg-canvas text-text-primary border border-border-subtle hover:bg-border-subtle'
+                                    ? 'bg-action-primary text-white'
+                                    : 'bg-bg-canvas text-text-primary border border-border-subtle hover:bg-border-subtle'
                                     }`}
                             >
                                 {filter.label}
@@ -289,7 +335,7 @@ const TaskManagerModal: React.FC<TaskManagerModalProps> = ({ onClose }) => {
                                     <span className="text-white text-sm font-semibold">Approve</span>
                                 </button>
                                 <button
-                                    onClick={handleBatchDelete}
+                                    onClick={() => setConfirmBatchDeleteOpen(true)}
                                     className="flex items-center space-x-1 px-3 py-1.5 bg-signal-alert rounded-lg hover:bg-red-600 transition-colors"
                                 >
                                     <Trash2 className="w-4 h-4 text-white" />
@@ -333,9 +379,10 @@ const TaskManagerModal: React.FC<TaskManagerModalProps> = ({ onClose }) => {
                 <CreateTaskModal
                     householdMembers={members}
                     onClose={() => setShowCreateModal(false)}
-                    onTaskCreated={() => {
+                    onTaskCreated={(newTask) => {
                         setShowCreateModal(false);
-                        // Data will refresh via WebSocket
+                        addTask(newTask);
+                        refresh();
                     }}
                 />
             )}
@@ -352,7 +399,7 @@ const TaskManagerModal: React.FC<TaskManagerModalProps> = ({ onClose }) => {
                     onTaskUpdated={() => {
                         setShowEditModal(false);
                         setEditingTask(null);
-                        // Data will refresh via WebSocket
+                        refresh();
                     }}
                 />
             )}

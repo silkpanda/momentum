@@ -40,6 +40,17 @@ export interface IQuest {
     claims: IQuestClaim[];
     createdBy?: string;
     createdAt?: Date | string;
+    // Added fields for edit modal compatibility
+    questType: 'one-time' | 'recurring';
+    maxClaims?: number;
+    dueDate?: string;
+    recurrence?: {
+        frequency: 'daily' | 'weekly' | 'monthly';
+        nextReset?: string; // Optionalized to be safe
+    };
+    status?: 'active' | 'claimed' | 'completed' | 'approved' | 'Active' | 'Completed' | 'Expired';
+    requirements?: string[];
+    expiresAt?: Date | string;
 }
 
 // --- Store Item Interface ---
@@ -49,6 +60,10 @@ export interface IStoreItem {
     description: string;
     cost: number;
     householdRefId: string;
+    stock?: number;
+    isInfinite?: boolean;
+    image?: string;
+    icon?: string;
 }
 
 // --- Member Interface ---
@@ -87,7 +102,7 @@ export interface IRestaurant {
 // --- Recipe Interface ---
 export interface IRecipe {
     _id: string;
-    title: string;
+    name: string;
     description?: string;
     prepTime?: number;
     cookTime?: number;
@@ -106,8 +121,7 @@ export interface IMealEntry {
     mealType: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
     itemId?: {
         _id: string;
-        title?: string; // For recipes
-        name?: string; // For restaurants
+        name?: string; // For recipes and restaurants
         description?: string;
     };
     itemType: 'Recipe' | 'Restaurant' | 'Custom';
@@ -123,29 +137,29 @@ export interface IMealPlan {
     meals: IMealEntry[];
 }
 
-// --- Quest Interface ---
-export interface IQuest {
-    _id: string;
+// --- Routine Interface ---
+export interface IRoutineStep {
     title: string;
-    description: string;
-    pointsValue: number;
-    status: 'Active' | 'Completed' | 'Expired';
-    requirements?: string[];
-    expiresAt?: Date | string;
+    isCompleted: boolean;
+    _id?: string; // Optional as per previous definition, but RoutineList doesn't have it. Keeping it optional just in case.
 }
 
-// --- Routine Interface ---
 export interface IRoutine {
     _id: string;
     title: string;
     description?: string;
-    timeOfDay: 'Morning' | 'Afternoon' | 'Evening';
-    steps: {
-        _id: string;
-        title: string;
-        isCompleted: boolean;
-    }[];
-    assignedTo: string[]; // Member IDs
+    assignedTo: string; // Member ID
+    steps: IRoutineStep[];
+    schedule: {
+        frequency: 'daily' | 'weekly';
+        days?: string[]; // e.g., ['Monday', 'Wednesday']
+        timeOfDay?: string;
+    };
+    pointsReward: number;
+    icon?: string;
+    color?: string;
+    isActive: boolean;
+    lastCompleted?: string; // ISO Date
 }
 
 // --- Wishlist Item Interface ---

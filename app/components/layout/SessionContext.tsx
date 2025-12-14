@@ -11,6 +11,7 @@ export interface UserData {
     _id: string;
     firstName: string;
     role: 'Parent' | 'Child';
+    email?: string;
 }
 
 export interface SessionData {

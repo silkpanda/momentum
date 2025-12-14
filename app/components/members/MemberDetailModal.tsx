@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { Target, CheckCircle, DollarSign, Zap, TrendingUp, X, Edit2 } from 'lucide-react';
 import Modal from '../shared/Modal';
@@ -5,6 +7,7 @@ import { useSession } from '../layout/SessionContext';
 import { useFamilyData } from '../../../lib/hooks/useFamilyData';
 import { IHouseholdMemberProfile } from '../../types';
 import EditMemberModal from './EditMemberModal';
+import AlertModal from '../shared/AlertModal';
 
 interface MemberDetailModalProps {
     member: IHouseholdMemberProfile;
@@ -16,6 +19,18 @@ const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ member, onClose }
     const { tasks } = useFamilyData();
     const [isProcessing, setIsProcessing] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+    // Modal States
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean, title: string, message: string, variant: 'info' | 'error' | 'success' }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        variant: 'info'
+    });
+
+    const showAlert = (title: string, message: string, variant: 'info' | 'error' | 'success' = 'info') => {
+        setAlertConfig({ isOpen: true, title, message, variant });
+    };
 
     // Get member's tasks
     const memberTasks = tasks.filter((t) =>
@@ -44,10 +59,10 @@ const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ member, onClose }
                 throw new Error('Failed to set focus task');
             }
 
-            alert('Focus task has been set!');
+            showAlert('Success', 'Focus task has been set!', 'success');
         } catch (error) {
             console.error('Set focus error:', error);
-            alert('Failed to set focus task');
+            showAlert('Error', 'Failed to set focus task', 'error');
         } finally {
             setIsProcessing(false);
         }
@@ -69,10 +84,10 @@ const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ member, onClose }
                 throw new Error('Failed to clear focus');
             }
 
-            alert('Focus mode has been cleared');
+            showAlert('Success', 'Focus mode has been cleared', 'success');
         } catch (error) {
             console.error('Clear focus error:', error);
-            alert('Failed to clear focus');
+            showAlert('Error', 'Failed to clear focus', 'error');
         } finally {
             setIsProcessing(false);
         }
@@ -80,6 +95,14 @@ const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ member, onClose }
 
     return (
         <>
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                variant={alertConfig.variant}
+            />
+
             <Modal isOpen={true} onClose={onClose} title={`${member.displayName}'s Profile`}>
                 <div className="space-y-6">
                     {/* Member Header */}

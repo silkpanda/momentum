@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import { X, Zap, Award, Calendar, Repeat, Check, Loader, AlertTriangle } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
-import { IQuest } from './QuestList';
+import { IQuest } from '../../types';
 
 interface EditQuestModalProps {
     quest: IQuest;

@@ -10,6 +10,8 @@ import { useSession } from '../layout/SessionContext';
 import CreateMealPlanModal from './CreateMealPlanModal';
 import EditMealPlanModal from './EditMealPlanModal';
 import { IMealPlan, IRecipe, IRestaurant } from '../../types';
+import AlertModal from '../shared/AlertModal';
+import ConfirmModal from '../shared/ConfirmModal';
 
 interface MealPlanListProps {
     mealPlans: IMealPlan[];
@@ -24,6 +26,19 @@ const MealPlanList: React.FC<MealPlanListProps> = ({ mealPlans: initialMealPlans
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [editingPlan, setEditingPlan] = useState<IMealPlan | null>(null);
 
+    // Modal States
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean, title: string, message: string, variant: 'info' | 'error' | 'success' }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        variant: 'info'
+    });
+
+    const showAlert = (title: string, message: string, variant: 'info' | 'error' | 'success' = 'info') => {
+        setAlertConfig({ isOpen: true, title, message, variant });
+    };
+
     const handleMealPlanCreated = (newPlan: IMealPlan) => {
         setMealPlans([newPlan, ...mealPlans]);
     };
@@ -32,11 +47,11 @@ const MealPlanList: React.FC<MealPlanListProps> = ({ mealPlans: initialMealPlans
         setMealPlans(mealPlans.map(p => p._id === updatedPlan._id ? updatedPlan : p));
     };
 
-    const handleDeleteMealPlan = async (planId: string) => {
-        if (!window.confirm('Are you sure you want to delete this meal plan?')) return;
+    const handleDeleteMealPlan = async () => {
+        if (!confirmDeleteId) return;
 
         try {
-            const response = await fetch(`/web-bff/meals/plans/${planId}`, {
+            const response = await fetch(`/web-bff/meals/plans/${confirmDeleteId}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -48,15 +63,35 @@ const MealPlanList: React.FC<MealPlanListProps> = ({ mealPlans: initialMealPlans
                 throw new Error(errData.message || 'Failed to delete meal plan');
             }
 
-            setMealPlans(mealPlans.filter(p => p._id !== planId));
+            setMealPlans(mealPlans.filter(p => p._id !== confirmDeleteId));
+            setConfirmDeleteId(null);
+            showAlert('Success', 'Meal plan deleted successfully', 'success');
         } catch (err) {
             console.error('Error deleting meal plan:', err);
-            alert('Failed to delete meal plan');
+            showAlert('Error', 'Failed to delete meal plan', 'error');
         }
     };
 
     return (
         <div className="space-y-6">
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                variant={alertConfig.variant}
+            />
+
+            <ConfirmModal
+                isOpen={!!confirmDeleteId}
+                onClose={() => setConfirmDeleteId(null)}
+                onConfirm={handleDeleteMealPlan}
+                title="Delete Meal Plan"
+                message="Are you sure you want to delete this meal plan?"
+                confirmText="Delete"
+                variant="danger"
+            />
+
             <div className="flex justify-between items-center">
                 <h2 className="text-xl font-bold text-text-primary">Meal Plans</h2>
                 {user?.role === 'Parent' && (
@@ -116,7 +151,7 @@ const MealPlanList: React.FC<MealPlanListProps> = ({ mealPlans: initialMealPlans
                                             <Pencil className="w-4 h-4" />
                                         </button>
                                         <button
-                                            onClick={() => handleDeleteMealPlan(plan._id)}
+                                            onClick={() => setConfirmDeleteId(plan._id)}
                                             className="p-2 text-text-tertiary hover:text-signal-alert hover:bg-signal-alert/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                                             title="Delete Plan"
                                         >

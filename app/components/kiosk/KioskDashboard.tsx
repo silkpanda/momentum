@@ -128,16 +128,13 @@ const InfoCard: React.FC<InfoCardProps> = ({ icon: Icon, title, children }) => {
     );
 };
 
-// --- Remind Parent FAB ---
-const RemindParentButton: React.FC = () => {
-    const handlePress = () => {
-        // In a real app, this would send a push notification
-        alert('Parent has been notified! (Simulation)');
-    };
+import AlertModal from '../shared/AlertModal';
 
+// --- Remind Parent FAB ---
+const RemindParentButton: React.FC<{ onRemind: () => void }> = ({ onRemind }) => {
     return (
         <button
-            onClick={handlePress}
+            onClick={onRemind}
             className="fixed bottom-8 right-8 bg-action-primary text-white p-4 rounded-full shadow-xl 
                        hover:bg-action-hover hover:scale-110 transition-all duration-300 z-50 flex items-center gap-2"
         >
@@ -157,13 +154,24 @@ const KioskDashboard: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isFocusModalOpen, setIsFocusModalOpen] = useState(false);
 
+    // Alert Modal State
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean, title: string, message: string, variant: 'info' | 'error' | 'success' }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        variant: 'info'
+    });
+
+    const showAlert = (title: string, message: string, variant: 'info' | 'error' | 'success' = 'info') => {
+        setAlertConfig({ isOpen: true, title, message, variant });
+    };
+
     // --- Parent Dashboard Navigation ---
     const router = useRouter();
     const [isPinModalOpen, setIsPinModalOpen] = useState(false);
     const [parentMemberId, setParentMemberId] = useState<string>('');
 
-    // Get task count for a member
-    // NOTE: We use the member's PROFILE ID (_id), not the user ID (familyMemberId._id)
+    // ... getTaskCount, getFocusedTask ...
     const getTaskCount = (memberProfileId: string) => {
         return tasks.filter(task =>
             !task.isCompleted &&
@@ -176,7 +184,7 @@ const KioskDashboard: React.FC = () => {
         return tasks.find(t => t._id === member.currentFocusTaskId);
     };
 
-    // Handle member selection
+    // ... handleMemberClick, handleFocusClick, handleModalClose ...
     const handleMemberClick = (member: IHouseholdMemberProfile) => {
         setSelectedMember(member);
         setIsModalOpen(true);
@@ -195,7 +203,7 @@ const KioskDashboard: React.FC = () => {
         // No need to refresh data - WebSocket updates handle this automatically
     };
 
-    // --- Helpers for Meal Display ---
+    // ... getTodaysMeal ...
     const getTodaysMeal = () => {
         const today = new Date().toISOString().split('T')[0];
 
@@ -221,7 +229,7 @@ const KioskDashboard: React.FC = () => {
                 };
             }
 
-            const recipeName = todaysDinner.itemId?.title || todaysDinner.itemId?.name || todaysDinner.customTitle || 'Dinner';
+            const recipeName = todaysDinner.itemId?.name || todaysDinner.customTitle || 'Dinner';
             const recipeDesc = todaysDinner.itemId?.description || 'Delicious meal';
 
             return {
@@ -234,7 +242,7 @@ const KioskDashboard: React.FC = () => {
         if (recipes.length > 0) {
             const randomRecipe = recipes[0]; // Just take first for now
             return {
-                title: randomRecipe.title,
+                title: randomRecipe.name,
                 description: 'Suggested Meal'
             };
         }
@@ -243,7 +251,6 @@ const KioskDashboard: React.FC = () => {
     };
 
     const todaysMeal = getTodaysMeal();
-
 
     if (loading) {
         return (
@@ -316,7 +323,7 @@ const KioskDashboard: React.FC = () => {
             setIsPinModalOpen(true);
         } else {
             console.error('[KioskDashboard] No parent profile found!');
-            alert('No parent profile found to verify against.');
+            showAlert('Parent Profile Not Found', 'No parent profile found to verify against.', 'error');
         }
     };
 
@@ -324,8 +331,22 @@ const KioskDashboard: React.FC = () => {
         router.push('/admin');
     };
 
+    const handleRemindParent = () => {
+        // In a real app, this would send a push notification
+        showAlert('Notification Sent', 'Parent has been notified! (Simulation)', 'success');
+    };
+
+
     return (
         <div className="space-y-8 pb-24 relative">
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                variant={alertConfig.variant}
+            />
+
             {/* Page Title & Header Actions */}
             <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
                 <div className="text-center md:text-left">
@@ -340,7 +361,7 @@ const KioskDashboard: React.FC = () => {
                 <button
                     onClick={handleParentDashboardClick}
                     className="flex items-center gap-2 px-6 py-3 bg-bg-surface border border-border-subtle rounded-xl 
-                               text-text-secondary hover:text-action-primary hover:border-action-primary 
+                               text-text-secondary hover:text-action-primary hover:text-action-primary hover:border-action-primary 
                                transition-all shadow-sm hover:shadow-md"
                 >
                     <Settings className="w-5 h-5" />
@@ -422,7 +443,7 @@ const KioskDashboard: React.FC = () => {
             </section>
 
             {/* Remind Parent Button */}
-            <RemindParentButton />
+            <RemindParentButton onRemind={handleRemindParent} />
 
             {/* Member Profile Modal */}
             {

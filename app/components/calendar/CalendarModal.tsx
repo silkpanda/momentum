@@ -51,8 +51,8 @@ const CalendarModal: React.FC<CalendarModalProps> = ({ onClose }) => {
             const mappedEvents = eventList.map((evt: any) => ({
                 id: evt.id,
                 title: evt.summary || evt.title || 'No Title',
-                startDate: evt.start?.dateTime || evt.start?.date || evt.startDate,
-                endDate: evt.end?.dateTime || evt.end?.date || evt.endDate,
+                startDate: evt.start?.dateTime || evt.start?.date,
+                endDate: evt.end?.dateTime || evt.end?.date,
                 allDay: !evt.start?.dateTime,
                 location: evt.location,
                 description: evt.description,

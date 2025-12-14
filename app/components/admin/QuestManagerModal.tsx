@@ -6,7 +6,10 @@ import Modal from '../shared/Modal';
 import { useSession } from '../layout/SessionContext';
 import { useFamilyData } from '../../../lib/hooks/useFamilyData';
 import CreateQuestModal from '../quests/CreateQuestModal';
+import EditQuestModal from '../quests/EditQuestModal';
 import { IQuest } from '../../types';
+import AlertModal from '../shared/AlertModal';
+import ConfirmModal from '../shared/ConfirmModal';
 
 interface QuestManagerModalProps {
     onClose: () => void;
@@ -29,18 +32,32 @@ const QuestManagerModal: React.FC<QuestManagerModalProps> = ({ onClose }) => {
     const [selectedQuests, setSelectedQuests] = useState<string[]>([]);
     const [editingQuest, setEditingQuest] = useState<IQuest | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
-    // const [showEditModal, setShowEditModal] = useState(false); // TODO: Implement EditQuestModal
+    const [showEditModal, setShowEditModal] = useState(false);
+
+    // Modal States
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [confirmBatchDeleteOpen, setConfirmBatchDeleteOpen] = useState(false);
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean, title: string, message: string, variant: 'info' | 'error' | 'success' }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        variant: 'info'
+    });
+
+    const showAlert = (title: string, message: string, variant: 'info' | 'error' | 'success' = 'info') => {
+        setAlertConfig({ isOpen: true, title, message, variant });
+    };
 
     // Filter and search quests
     const filteredQuests = useMemo(() => {
         return quests
-            .filter((quest) => {
+            .filter((quest: IQuest) => {
                 // Apply status filter
                 if (activeFilter === 'active') return quest.isActive;
                 if (activeFilter === 'completed') return !quest.isActive; // Assuming !isActive means completed/archived
                 return true;
             })
-            .filter((quest) => {
+            .filter((quest: IQuest) => {
                 // Apply search
                 if (!searchQuery) return true;
                 return quest.title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -58,10 +75,6 @@ const QuestManagerModal: React.FC<QuestManagerModalProps> = ({ onClose }) => {
     const handleBatchDelete = async () => {
         if (selectedQuests.length === 0) return;
 
-        if (!confirm(`Are you sure you want to delete ${selectedQuests.length} quest(s)?`)) {
-            return;
-        }
-
         try {
             await Promise.all(
                 selectedQuests.map((id) =>
@@ -73,27 +86,28 @@ const QuestManagerModal: React.FC<QuestManagerModalProps> = ({ onClose }) => {
             );
             clearSelection();
             refresh();
-            alert('Quests deleted successfully');
+            setConfirmBatchDeleteOpen(false);
+            showAlert('Success', 'Quests deleted successfully', 'success');
         } catch (error) {
             console.error('Batch delete error:', error);
-            alert('Failed to delete some quests');
+            showAlert('Error', 'Failed to delete some quests', 'error');
         }
     };
 
-    const handleDeleteQuest = async (questId: string, questTitle: string) => {
-        if (!confirm(`Are you sure you want to delete "${questTitle}"?`)) {
-            return;
-        }
+    const handleDeleteQuest = async () => {
+        if (!confirmDeleteId) return;
 
         try {
-            await fetch(`/web-bff/quests/${questId}`, {
+            await fetch(`/web-bff/quests/${confirmDeleteId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             refresh();
+            setConfirmDeleteId(null);
+            // Optionally show success, but refresh handles UI update
         } catch (error) {
             console.error('Delete error:', error);
-            alert('Failed to delete quest');
+            showAlert('Error', 'Failed to delete quest', 'error');
         }
     };
 
@@ -132,8 +146,8 @@ const QuestManagerModal: React.FC<QuestManagerModalProps> = ({ onClose }) => {
 
                 {/* Quick Actions */}
                 <div className="flex space-x-2">
-                    {/* TODO: Add Edit Button */}
-                    {/* <button
+                    {/* Edit Button */}
+                    <button
                         onClick={() => {
                             setEditingQuest(quest);
                             setShowEditModal(true);
@@ -141,9 +155,9 @@ const QuestManagerModal: React.FC<QuestManagerModalProps> = ({ onClose }) => {
                         className="w-8 h-8 flex items-center justify-center bg-action-primary rounded-lg hover:bg-action-hover transition-colors"
                     >
                         <Edit2 className="w-4 h-4 text-white" />
-                    </button> */}
+                    </button>
                     <button
-                        onClick={() => handleDeleteQuest(quest._id, quest.title)}
+                        onClick={() => setConfirmDeleteId(quest._id)}
                         className="w-8 h-8 flex items-center justify-center bg-signal-alert rounded-lg hover:bg-red-600 transition-colors"
                     >
                         <Trash2 className="w-4 h-4 text-white" />
@@ -155,6 +169,34 @@ const QuestManagerModal: React.FC<QuestManagerModalProps> = ({ onClose }) => {
 
     return (
         <>
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                variant={alertConfig.variant}
+            />
+
+            <ConfirmModal
+                isOpen={!!confirmDeleteId}
+                onClose={() => setConfirmDeleteId(null)}
+                onConfirm={handleDeleteQuest}
+                title="Delete Quest"
+                message="Are you sure you want to delete this quest?"
+                confirmText="Delete"
+                variant="danger"
+            />
+
+            <ConfirmModal
+                isOpen={confirmBatchDeleteOpen}
+                onClose={() => setConfirmBatchDeleteOpen(false)}
+                onConfirm={handleBatchDelete}
+                title="Delete Quests"
+                message={`Are you sure you want to delete ${selectedQuests.length} quest(s)?`}
+                confirmText="Delete All"
+                variant="danger"
+            />
+
             <Modal isOpen={true} onClose={onClose} title="Quest Manager">
                 <div className="space-y-4">
                     {/* Header Actions */}
@@ -213,7 +255,7 @@ const QuestManagerModal: React.FC<QuestManagerModalProps> = ({ onClose }) => {
                             <span className="text-white font-semibold">{selectedQuests.length} selected</span>
                             <div className="flex space-x-2">
                                 <button
-                                    onClick={handleBatchDelete}
+                                    onClick={() => setConfirmBatchDeleteOpen(true)}
                                     className="flex items-center space-x-1 px-3 py-1.5 bg-signal-alert rounded-lg hover:bg-red-600 transition-colors"
                                 >
                                     <Trash2 className="w-4 h-4 text-white" />
@@ -263,8 +305,8 @@ const QuestManagerModal: React.FC<QuestManagerModalProps> = ({ onClose }) => {
                 />
             )}
 
-            {/* Edit Modal (Placeholder) */}
-            {/* {showEditModal && editingQuest && (
+            {/* Edit Modal */}
+            {showEditModal && editingQuest && (
                 <EditQuestModal
                     quest={editingQuest}
                     onClose={() => {
@@ -277,7 +319,7 @@ const QuestManagerModal: React.FC<QuestManagerModalProps> = ({ onClose }) => {
                         refresh();
                     }}
                 />
-            )} */}
+            )}
         </>
     );
 };

@@ -291,10 +291,9 @@ const MemberList: React.FC = () => {
             {isEditModalOpen && selectedMember && (
                 <EditMemberModal
                     member={selectedMember}
-                    householdId={householdId!}
                     onClose={() => setIsEditModalOpen(false)}
                     onMemberUpdated={handleMemberUpdated}
-                    usedColors={memberProfiles.map(p => p.profileColor).filter(Boolean) as string[]}
+                    onMemberDeleted={handleMemberDeleted}
                 />
             )}
 

@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Loader, AlertTriangle, ShoppingBag, Check, Trash, Edit } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
+import ConfirmModal from '../shared/ConfirmModal';
+import AlertModal from '../shared/AlertModal';
 
 interface IWishlistItem {
     _id: string;
@@ -19,6 +21,20 @@ const Wishlist: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const { token } = useSession();
+
+    // Modal States
+    const [confirmPurchaseId, setConfirmPurchaseId] = useState<string | null>(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean, title: string, message: string, variant: 'info' | 'error' | 'success' }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        variant: 'info'
+    });
+
+    const showAlert = (title: string, message: string, variant: 'info' | 'error' | 'success' = 'info') => {
+        setAlertConfig({ isOpen: true, title, message, variant });
+    };
 
     const fetchWishlist = useCallback(async () => {
         if (!token) return;
@@ -46,33 +62,37 @@ const Wishlist: React.FC = () => {
         fetchWishlist();
     }, [fetchWishlist]);
 
-    const handlePurchase = async (id: string) => {
-        if (!confirm('Mark this item as purchased?')) return;
+    const handlePurchase = async () => {
+        if (!confirmPurchaseId) return;
         try {
-            const response = await fetch(`/web-bff/wishlist/${id}/purchase`, {
+            const response = await fetch(`/web-bff/wishlist/${confirmPurchaseId}/purchase`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
             if (!response.ok) throw new Error('Failed to purchase item');
             fetchWishlist();
+            setConfirmPurchaseId(null);
         } catch (e: any) {
-            alert(e.message);
+            showAlert('Error', e.message, 'error');
+            setConfirmPurchaseId(null);
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('Delete this item?')) return;
+    const handleDelete = async () => {
+        if (!confirmDeleteId) return;
         try {
-            const response = await fetch(`/web-bff/wishlist/${id}`, {
+            const response = await fetch(`/web-bff/wishlist/${confirmDeleteId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
             if (!response.ok) throw new Error('Failed to delete item');
             fetchWishlist();
+            setConfirmDeleteId(null);
         } catch (e: any) {
-            alert(e.message);
+            showAlert('Error', e.message, 'error');
+            setConfirmDeleteId(null);
         }
     };
 
@@ -91,6 +111,34 @@ const Wishlist: React.FC = () => {
 
     return (
         <div className="w-full space-y-6">
+            <ConfirmModal
+                isOpen={!!confirmPurchaseId}
+                onClose={() => setConfirmPurchaseId(null)}
+                onConfirm={handlePurchase}
+                title="Confirm Purchase"
+                message="Are you sure you want to mark this item as purchased?"
+                confirmText="Purchase"
+                variant="primary"
+            />
+
+            <ConfirmModal
+                isOpen={!!confirmDeleteId}
+                onClose={() => setConfirmDeleteId(null)}
+                onConfirm={handleDelete}
+                title="Delete Item"
+                message="Are you sure you want to delete this item from the wishlist?"
+                confirmText="Delete"
+                variant="danger"
+            />
+
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                variant={alertConfig.variant}
+            />
+
             <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold text-text-primary flex items-center">
                     <ShoppingBag className="w-5 h-5 mr-2 text-action-primary" />
@@ -98,7 +146,7 @@ const Wishlist: React.FC = () => {
                 </h2>
                 <button
                     className="px-4 py-2 bg-action-primary text-white rounded-lg hover:bg-action-hover transition-colors flex items-center text-sm font-medium"
-                    onClick={() => alert('Create Modal Not Implemented Yet')}
+                    onClick={() => showAlert('Coming Soon', 'Create Modal Not Implemented Yet')}
                 >
                     <Plus className="w-4 h-4 mr-1.5" />
                     Add Item
@@ -113,8 +161,8 @@ const Wishlist: React.FC = () => {
                                 {item.title}
                             </h3>
                             <span className={`text-xs px-2 py-1 rounded-full ${item.priority === 'high' ? 'bg-signal-alert/10 text-signal-alert' :
-                                    item.priority === 'medium' ? 'bg-signal-warning/10 text-signal-warning' :
-                                        'bg-signal-success/10 text-signal-success'
+                                item.priority === 'medium' ? 'bg-signal-warning/10 text-signal-warning' :
+                                    'bg-signal-success/10 text-signal-success'
                                 }`}>
                                 {item.priority}
                             </span>
@@ -126,7 +174,7 @@ const Wishlist: React.FC = () => {
                             <div className="flex space-x-2">
                                 {!item.isPurchased && (
                                     <button
-                                        onClick={() => handlePurchase(item._id)}
+                                        onClick={() => setConfirmPurchaseId(item._id)}
                                         className="p-2 text-signal-success hover:bg-signal-success/10 rounded transition-colors"
                                         title="Mark Purchased"
                                     >
@@ -134,7 +182,7 @@ const Wishlist: React.FC = () => {
                                     </button>
                                 )}
                                 <button
-                                    onClick={() => handleDelete(item._id)}
+                                    onClick={() => setConfirmDeleteId(item._id)}
                                     className="p-2 text-text-secondary hover:text-signal-alert hover:bg-signal-alert/10 rounded transition-colors"
                                     title="Delete"
                                 >

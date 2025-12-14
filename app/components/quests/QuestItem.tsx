@@ -9,6 +9,8 @@ import { useSession } from '../layout/SessionContext';
 import { IQuest } from './QuestList';
 import EditQuestModal from './EditQuestModal';
 import QuestCard from '../shared/QuestCard';
+import AlertModal from '../shared/AlertModal';
+import ConfirmModal from '../shared/ConfirmModal';
 
 interface QuestItemProps {
     quest: IQuest;
@@ -20,6 +22,19 @@ const QuestItem: React.FC<QuestItemProps> = ({ quest, onUpdate, onDelete }) => {
     const { user, token } = useSession();
     const [isLoading, setIsLoading] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+    // Modal States
+    const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean, title: string, message: string, variant: 'info' | 'error' | 'success' }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        variant: 'info'
+    });
+
+    const showAlert = (title: string, message: string, variant: 'info' | 'error' | 'success' = 'info') => {
+        setAlertConfig({ isOpen: true, title, message, variant });
+    };
 
     const isParent = user?.role === 'Parent';
 
@@ -56,16 +71,37 @@ const QuestItem: React.FC<QuestItemProps> = ({ quest, onUpdate, onDelete }) => {
                 const data = await response.json();
                 onUpdate(data.data.quest);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error(`Error performing ${action}:`, error);
-            alert(`Failed to ${action} quest. Please try again.`);
+            showAlert('Error', `Failed to ${action} quest: ${error.message || 'Unknown error'}`, 'error');
         } finally {
             setIsLoading(false);
+            if (action === 'delete') {
+                setIsConfirmDeleteOpen(false);
+            }
         }
     };
 
     return (
         <>
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                variant={alertConfig.variant}
+            />
+
+            <ConfirmModal
+                isOpen={isConfirmDeleteOpen}
+                onClose={() => setIsConfirmDeleteOpen(false)}
+                onConfirm={() => handleAction('delete')}
+                title="Delete Quest"
+                message={`Are you sure you want to delete "${quest.title}"? This cannot be undone.`}
+                confirmText="Delete"
+                variant="danger"
+            />
+
             <QuestCard
                 quest={{
                     ...quest,
@@ -77,7 +113,7 @@ const QuestItem: React.FC<QuestItemProps> = ({ quest, onUpdate, onDelete }) => {
                 isParent={isParent}
                 isLoading={isLoading}
                 onEdit={() => setIsEditModalOpen(true)}
-                onDelete={() => handleAction('delete')}
+                onDelete={() => setIsConfirmDeleteOpen(true)}
                 onApprove={() => handleAction('approve')}
                 onClaim={() => handleAction('claim')}
                 onComplete={() => handleAction('complete')}

@@ -8,8 +8,9 @@
 import React, { useState } from 'react';
 import { useSession } from '../layout/SessionContext';
 import { IHouseholdMemberProfile, ITask, IStoreItem } from '../../types';
-import { X, CheckSquare, Award, User, Loader, Gift, ChevronRight, Target, Play } from 'lucide-react';
+import { X, CheckSquare, Award, User, Loader, Gift, ChevronRight, Target, Play, Clock } from 'lucide-react';
 import FocusModeView from '../focus/FocusModeView';
+import AlertModal from '../shared/AlertModal';
 
 interface KioskMemberProfileModalProps {
     member: IHouseholdMemberProfile;
@@ -32,22 +33,37 @@ const KioskMemberProfileModal: React.FC<KioskMemberProfileModalProps> = ({
     const [error, setError] = useState<string | null>(null);
     const [isFocusModeActive, setIsFocusModeActive] = useState(false);
 
-    // Filter tasks for this member
-    // NOTE: We compare with member._id (profile ID), not member.familyMemberId._id (user ID)
+    // Alert Modal State
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean, title: string, message: string, variant?: 'info' | 'error' | 'success' }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        variant: 'info'
+    });
+
+    const showAlert = (title: string, message: string, variant: 'info' | 'error' | 'success' = 'info') => {
+        setAlertConfig({ isOpen: true, title, message, variant });
+    };
+
+    // Optimistic state for submitted tasks
+    const [submittedTaskIds, setSubmittedTaskIds] = useState<Set<string>>(new Set());
+
+    // ... existing filters ...
     const memberTasks = allTasks.filter(task =>
-        !task.isCompleted &&
+        (!task.isCompleted || task.status === 'PendingApproval') && // Show pending
         task.assignedTo?.some(assignee => assignee._id === member._id)
     );
+
+    // ... (focus task logic remains same)
 
     const focusedTask = member.currentFocusTaskId
         ? memberTasks.find(t => t._id === member.currentFocusTaskId)
         : undefined;
 
-    // Filter store items by affordability
     const affordableItems = allItems.filter(item => item.cost <= member.pointsTotal);
     const futureItems = allItems.filter(item => item.cost > member.pointsTotal);
 
-    // Handle task completion
+    // ... handleCompleteTask ...
     const handleCompleteTask = async (taskId: string) => {
         if (completingTaskId) return;
 
@@ -64,13 +80,22 @@ const KioskMemberProfileModal: React.FC<KioskMemberProfileModalProps> = ({
                 body: JSON.stringify({ memberId: member._id }),
             });
 
+            const data = await response.json();
+
             if (!response.ok) {
-                const data = await response.json();
                 throw new Error(data.message || 'Failed to complete task');
             }
 
-            // Success - close modal to refresh data
-            onClose();
+            // Update local state to reflect change (e.g. set to PendingApproval)
+            // We do NOT close the modal anymore so the user secs the feedback
+            const updatedTask = data.data || data;
+
+            // Optimistically mark as submitted
+            setSubmittedTaskIds(prev => new Set(prev).add(taskId));
+
+            // Show success feedback
+            showAlert('Great Job!', 'Task submitted for approval!', 'success');
+
         } catch (e: any) {
             setError(e.message);
         } finally {
@@ -81,10 +106,10 @@ const KioskMemberProfileModal: React.FC<KioskMemberProfileModalProps> = ({
     // Handle reward request
     const handleRequestReward = async (itemId: string) => {
         // TODO: Implement approval request system
-        alert('Reward approval system coming soon!');
+        showAlert('Coming Soon', 'Reward approval system coming soon!');
     };
 
-    // Tab Button Component
+    // ... TabButton ...
     const TabButton: React.FC<{ tab: TabType; icon: React.ElementType; label: string }> = ({
         tab,
         icon: Icon,
@@ -107,12 +132,24 @@ const KioskMemberProfileModal: React.FC<KioskMemberProfileModalProps> = ({
             {isFocusModeActive && focusedTask && (
                 <FocusModeView
                     task={focusedTask}
-                    onComplete={() => handleCompleteTask(focusedTask._id)}
+                    onComplete={async () => {
+                        await handleCompleteTask(focusedTask._id);
+                        setIsFocusModeActive(false);
+                    }}
                     onExit={() => setIsFocusModeActive(false)}
                 />
             )}
 
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                variant={alertConfig.variant}
+            />
+
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                {/* ... rest of the modal content same as before ... */}
                 <div className="bg-bg-surface rounded-2xl shadow-2xl border border-border-subtle max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
 
                     {/* Header */}
@@ -242,15 +279,23 @@ const KioskMemberProfileModal: React.FC<KioskMemberProfileModalProps> = ({
                                                 {/* Complete Button */}
                                                 <button
                                                     onClick={() => handleCompleteTask(task._id)}
-                                                    disabled={completingTaskId === task._id}
-                                                    className="ml-4 px-6 py-3 bg-signal-success text-white rounded-lg font-medium 
-                                                         hover:bg-signal-success/90 disabled:opacity-50 disabled:cursor-not-allowed
-                                                         transition-all shadow-md hover:shadow-lg flex items-center space-x-2"
+                                                    disabled={completingTaskId === task._id || submittedTaskIds.has(task._id) || task.status === 'PendingApproval'}
+                                                    className={`ml-4 px-6 py-3 rounded-lg font-medium 
+                                                         flex items-center space-x-2 transition-all shadow-md hover:shadow-lg
+                                                         ${submittedTaskIds.has(task._id) || task.status === 'PendingApproval'
+                                                            ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20 cursor-default shadow-none'
+                                                            : 'bg-signal-success text-white hover:bg-signal-success/90 disabled:opacity-50 disabled:cursor-not-allowed'
+                                                        }`}
                                                 >
                                                     {completingTaskId === task._id ? (
                                                         <>
                                                             <Loader className="w-5 h-5 animate-spin" />
                                                             <span>Completing...</span>
+                                                        </>
+                                                    ) : submittedTaskIds.has(task._id) || task.status === 'PendingApproval' ? (
+                                                        <>
+                                                            <Clock className="w-5 h-5" />
+                                                            <span>Pending Approval</span>
                                                         </>
                                                     ) : (
                                                         <>

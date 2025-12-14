@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, Loader, AlertTriangle, Copy, Check, Trash, Settings } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
+import AlertModal from '../shared/AlertModal';
+import ConfirmModal from '../shared/ConfirmModal';
 
 interface IHouseholdLink {
     _id: string;
@@ -22,6 +24,19 @@ const HouseholdLinkSettings: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const { token } = useSession();
 
+    // Modal States
+    const [confirmUnlinkId, setConfirmUnlinkId] = useState<string | null>(null);
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean, title: string, message: string, variant: 'info' | 'error' | 'success' }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        variant: 'info'
+    });
+
+    const showAlert = (title: string, message: string, variant: 'info' | 'error' | 'success' = 'info') => {
+        setAlertConfig({ isOpen: true, title, message, variant });
+    };
+
     const fetchLinks = useCallback(async () => {
         if (!token) return;
         setLoading(true);
@@ -31,7 +46,6 @@ const HouseholdLinkSettings: React.FC = () => {
             });
 
             if (!response.ok) throw new Error('Failed to fetch links');
-
             const data = await response.json();
             setLinks(data.data.links || []);
             setError(null);
@@ -59,27 +73,30 @@ const HouseholdLinkSettings: React.FC = () => {
             // I'll skip the actual API call for now and just show the UI structure.
 
             // TODO: Implement child selection logic
-            alert('Please select a child to generate a code for (Not implemented in this MVP step)');
+            showAlert('Coming Soon', 'Please select a child to generate a code for (Not implemented in this MVP step)', 'info');
 
         } catch (e: any) {
-            alert(e.message);
+            showAlert('Error', e.message, 'error');
         } finally {
             setGenerating(false);
         }
     };
 
-    const handleUnlink = async (childId: string) => {
-        if (!confirm('Unlink this child?')) return;
+    const handleUnlink = async () => {
+        if (!confirmUnlinkId) return;
         try {
-            const response = await fetch(`/web-bff/household/links/child/${childId}/unlink`, {
+            const response = await fetch(`/web-bff/household/links/child/${confirmUnlinkId}/unlink`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
             if (!response.ok) throw new Error('Failed to unlink child');
             fetchLinks();
+            setConfirmUnlinkId(null);
+            showAlert('Success', 'Child unlinked successfully.', 'success');
         } catch (e: any) {
-            alert(e.message);
+            showAlert('Error', e.message, 'error');
+            setConfirmUnlinkId(null);
         }
     };
 
@@ -89,6 +106,24 @@ const HouseholdLinkSettings: React.FC = () => {
 
     return (
         <div className="w-full space-y-6">
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                variant={alertConfig.variant}
+            />
+
+            <ConfirmModal
+                isOpen={!!confirmUnlinkId}
+                onClose={() => setConfirmUnlinkId(null)}
+                onConfirm={handleUnlink}
+                title="Unlink Child"
+                message="Are you sure you want to unlink this child? They will no longer be shared with the other household."
+                confirmText="Unlink"
+                variant="danger"
+            />
+
             <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold text-text-primary flex items-center">
                     <Link className="w-5 h-5 mr-2 text-action-primary" />
@@ -128,7 +163,7 @@ const HouseholdLinkSettings: React.FC = () => {
                                     {link.childId?.displayName || 'Unknown Child'}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
-                                    {link.household2} {/* Should probably fetch household name */}
+                                    {link.household2}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${link.status === 'active' ? 'bg-signal-success/10 text-signal-success' : 'bg-text-secondary/10 text-text-secondary'
@@ -138,7 +173,7 @@ const HouseholdLinkSettings: React.FC = () => {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <button
-                                        onClick={() => handleUnlink(link.childId._id)}
+                                        onClick={() => setConfirmUnlinkId(link.childId._id)}
                                         className="text-signal-alert hover:text-signal-alert/80 ml-4"
                                     >
                                         Unlink

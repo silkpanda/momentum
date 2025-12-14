@@ -8,7 +8,10 @@ import React, { useState } from 'react';
 import { Check, Trash, Clock, Calendar, Award, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
 import { IRoutine } from './RoutineList';
+import { useFamilyData } from '../../../lib/hooks/useFamilyData';
 import EditRoutineModal from './EditRoutineModal';
+import AlertModal from '../shared/AlertModal';
+import ConfirmModal from '../shared/ConfirmModal';
 
 interface RoutineItemProps {
     routine: IRoutine;
@@ -18,12 +21,26 @@ interface RoutineItemProps {
 
 const RoutineItem: React.FC<RoutineItemProps> = ({ routine, onUpdate, onDelete }) => {
     const { user, token } = useSession();
+    const { members } = useFamilyData();
     const [isLoading, setIsLoading] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
+    // Modal States
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean, title: string, message: string, variant: 'info' | 'error' | 'success' }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        variant: 'info'
+    });
+
     const isParent = user?.role === 'Parent';
     const isAssignedToMe = routine.assignedTo === user?._id;
+
+    const showAlert = (title: string, message: string, variant: 'info' | 'error' | 'success' = 'info') => {
+        setAlertConfig({ isOpen: true, title, message, variant });
+    };
 
     // Helper to handle API calls
     const handleAction = async (action: 'complete' | 'delete') => {
@@ -53,6 +70,7 @@ const RoutineItem: React.FC<RoutineItemProps> = ({ routine, onUpdate, onDelete }
             }
 
             if (action === 'delete') {
+                setIsDeleteConfirmOpen(false);
                 onDelete(routine._id);
             } else {
                 // For completion, we might just get a success message and points
@@ -60,11 +78,11 @@ const RoutineItem: React.FC<RoutineItemProps> = ({ routine, onUpdate, onDelete }
                 // The API returns data: { pointsAwarded, newTotal }
                 // It doesn't return the updated routine object usually, unless we change it.
                 // Let's assume for now we just alert success.
-                alert('Routine completed! Points awarded.');
+                showAlert('Success', 'Routine completed! Points awarded.', 'success');
             }
         } catch (error) {
             console.error(`Error performing ${action}:`, error);
-            alert(`Failed to ${action} routine. Please try again.`);
+            showAlert('Error', `Failed to ${action} routine. Please try again.`, 'error');
         } finally {
             setIsLoading(false);
         }
@@ -72,6 +90,24 @@ const RoutineItem: React.FC<RoutineItemProps> = ({ routine, onUpdate, onDelete }
 
     return (
         <>
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                variant={alertConfig.variant}
+            />
+
+            <ConfirmModal
+                isOpen={isDeleteConfirmOpen}
+                onClose={() => setIsDeleteConfirmOpen(false)}
+                onConfirm={() => handleAction('delete')}
+                title="Delete Routine"
+                message="Are you sure you want to delete this routine? This action cannot be undone."
+                confirmText="Delete"
+                variant="danger"
+            />
+
             <div className="bg-bg-surface rounded-xl shadow-sm border border-border-subtle p-5 flex flex-col justify-between h-full hover:shadow-md transition-shadow">
                 <div>
                     <div className="flex justify-between items-start mb-3">
@@ -100,7 +136,7 @@ const RoutineItem: React.FC<RoutineItemProps> = ({ routine, onUpdate, onDelete }
                                     <Pencil className="w-4 h-4" />
                                 </button>
                                 <button
-                                    onClick={() => handleAction('delete')}
+                                    onClick={() => setIsDeleteConfirmOpen(true)}
                                     disabled={isLoading}
                                     className="p-1.5 text-text-tertiary hover:text-signal-alert hover:bg-signal-alert/10 rounded-lg transition-colors"
                                     title="Delete Routine"
@@ -159,6 +195,7 @@ const RoutineItem: React.FC<RoutineItemProps> = ({ routine, onUpdate, onDelete }
                     routine={routine}
                     onClose={() => setIsEditModalOpen(false)}
                     onRoutineUpdated={onUpdate}
+                    members={members}
                 />
             )}
         </>

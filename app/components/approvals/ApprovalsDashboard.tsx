@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSession } from '../layout/SessionContext';
-import { CheckCircle, XCircle, Clock, Target, Map as MapIcon, AlertTriangle, Loader } from 'lucide-react';
+import { CheckCircle, Clock, Target, Map as MapIcon, Loader } from 'lucide-react';
 import { useSocketEvent } from '../../../lib/hooks/useSocket';
 import { SOCKET_EVENTS } from '../../../lib/socket';
+import AlertModal from '../shared/AlertModal';
+import ConfirmModal from '../shared/ConfirmModal';
 
 // --- Types ---
 
@@ -44,6 +46,20 @@ export default function ApprovalsDashboard() {
     const [members, setMembers] = useState<IMember[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    // Modal States
+    const [confirmRejectTaskId, setConfirmRejectTaskId] = useState<string | null>(null);
+    const [confirmRejectQuest, setConfirmRejectQuest] = useState<{ questId: string, memberId: string } | null>(null);
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean, title: string, message: string, variant: 'info' | 'error' | 'success' }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        variant: 'info'
+    });
+
+    const showAlert = (title: string, message: string, variant: 'info' | 'error' | 'success' = 'info') => {
+        setAlertConfig({ isOpen: true, title, message, variant });
+    };
 
     // --- Data Fetching ---
 
@@ -124,17 +140,18 @@ export default function ApprovalsDashboard() {
                 throw new Error(data.message || 'Failed to approve task');
             }
             fetchData();
+            // showAlert('Success', 'Task approved!', 'success'); // Optional success feedback
         } catch (err: any) {
             console.error(err);
-            alert(`Failed to approve task: ${err.message}`);
+            showAlert('Error', `Failed to approve task: ${err.message}`, 'error');
         }
     };
 
-    const handleRejectTask = async (taskId: string) => {
-        if (!confirm('Reject this task? The child will need to complete it again.')) return;
+    const handleRejectTask = async () => {
+        if (!confirmRejectTaskId) return;
 
         try {
-            const res = await fetch(`/web-bff/tasks/${taskId}`, {
+            const res = await fetch(`/web-bff/tasks/${confirmRejectTaskId}`, {
                 method: 'PATCH',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -144,23 +161,16 @@ export default function ApprovalsDashboard() {
             });
 
             if (!res.ok) throw new Error('Failed to reject task');
+            setConfirmRejectTaskId(null);
             fetchData();
+            showAlert('Success', 'Task rejected', 'success');
         } catch (err) {
             console.error(err);
-            alert('Failed to reject task');
+            showAlert('Error', 'Failed to reject task', 'error');
         }
     };
 
     const handleApproveQuest = async (questId: string, memberId: string) => {
-        // For quests, we might need a specific endpoint or update the claim status
-        // Assuming PATCH /web-bff/quests/[id]/approve exists or we update the quest manually
-        // Since mobile uses api.approveQuest, let's check if we can replicate that logic via generic update
-        // or if we need a specific route. For now, I'll try a generic update to the claim.
-
-        // Actually, let's use a dedicated endpoint pattern if possible, but standard REST is:
-        // PATCH /quests/:id { claims: [...] }
-
-        // Let's assume we need to find the claim and update it.
         const quest = quests.find(q => q._id === questId);
         if (!quest) return;
 
@@ -180,14 +190,16 @@ export default function ApprovalsDashboard() {
 
             if (!res.ok) throw new Error('Failed to approve quest');
             fetchData();
+            // showAlert('Success', 'Quest approved!', 'success');
         } catch (err) {
             console.error(err);
-            alert('Failed to approve quest');
+            showAlert('Error', 'Failed to approve quest', 'error');
         }
     };
 
-    const handleRejectQuest = async (questId: string, memberId: string) => {
-        if (!confirm('Reject this quest? The member will need to complete it again.')) return;
+    const handleRejectQuest = async () => {
+        if (!confirmRejectQuest) return;
+        const { questId, memberId } = confirmRejectQuest;
 
         const quest = quests.find(q => q._id === questId);
         if (!quest) return;
@@ -207,10 +219,12 @@ export default function ApprovalsDashboard() {
             });
 
             if (!res.ok) throw new Error('Failed to reject quest');
+            setConfirmRejectQuest(null);
             fetchData();
+            showAlert('Success', 'Quest rejected', 'success');
         } catch (err) {
             console.error(err);
-            alert('Failed to reject quest');
+            showAlert('Error', 'Failed to reject quest', 'error');
         }
     };
 
@@ -223,6 +237,34 @@ export default function ApprovalsDashboard() {
 
     return (
         <div className="max-w-4xl mx-auto">
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                variant={alertConfig.variant}
+            />
+
+            <ConfirmModal
+                isOpen={!!confirmRejectTaskId}
+                onClose={() => setConfirmRejectTaskId(null)}
+                onConfirm={handleRejectTask}
+                title="Reject Task"
+                message="Reject this task? The child will need to complete it again."
+                confirmText="Reject"
+                variant="danger"
+            />
+
+            <ConfirmModal
+                isOpen={!!confirmRejectQuest}
+                onClose={() => setConfirmRejectQuest(null)}
+                onConfirm={handleRejectQuest}
+                title="Reject Quest"
+                message="Reject this quest? The member will need to complete it again."
+                confirmText="Reject"
+                variant="danger"
+            />
+
             <div className="mb-8">
                 <h2 className="text-3xl font-semibold text-text-primary mb-2">Approvals Dashboard</h2>
                 <p className="text-text-secondary">Review and approve completed tasks and quests.</p>
@@ -263,7 +305,7 @@ export default function ApprovalsDashboard() {
                                     </div>
                                     <div className="flex items-center gap-3 w-full sm:w-auto">
                                         <button
-                                            onClick={() => handleRejectTask(task._id)}
+                                            onClick={() => setConfirmRejectTaskId(task._id)}
                                             className="flex-1 sm:flex-none px-4 py-2 border border-signal-alert text-signal-alert rounded-lg hover:bg-signal-alert/5 transition-colors font-medium"
                                         >
                                             Reject
@@ -311,7 +353,7 @@ export default function ApprovalsDashboard() {
                                             </div>
                                             <div className="flex items-center gap-3 w-full sm:w-auto">
                                                 <button
-                                                    onClick={() => handleRejectQuest(quest._id, claim.memberId)}
+                                                    onClick={() => setConfirmRejectQuest({ questId: quest._id, memberId: claim.memberId })}
                                                     className="flex-1 sm:flex-none px-4 py-2 border border-signal-alert text-signal-alert rounded-lg hover:bg-signal-alert/5 transition-colors font-medium"
                                                 >
                                                     Reject

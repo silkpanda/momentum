@@ -8,6 +8,8 @@ import { useFamilyData } from '../../../lib/hooks/useFamilyData';
 import CreateRoutineModal from '../routines/CreateRoutineModal';
 import EditRoutineModal from '../routines/EditRoutineModal';
 import { IRoutine } from '../routines/RoutineList';
+import AlertModal from '../shared/AlertModal';
+import ConfirmModal from '../shared/ConfirmModal';
 
 interface RoutineManagerModalProps {
     onClose: () => void;
@@ -22,6 +24,19 @@ const RoutineManagerModal: React.FC<RoutineManagerModalProps> = ({ onClose }) =>
     const [editingRoutine, setEditingRoutine] = useState<IRoutine | null>(null);
     const [showEditModal, setShowEditModal] = useState(false);
 
+    // Modal States
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean, title: string, message: string, variant: 'info' | 'error' | 'success' }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        variant: 'info'
+    });
+
+    const showAlert = (title: string, message: string, variant: 'info' | 'error' | 'success' = 'info') => {
+        setAlertConfig({ isOpen: true, title, message, variant });
+    };
+
     // Filter and search routines
     const filteredRoutines = useMemo(() => {
         return routines
@@ -32,13 +47,11 @@ const RoutineManagerModal: React.FC<RoutineManagerModalProps> = ({ onClose }) =>
             .sort((a, b) => a.title.localeCompare(b.title));
     }, [routines, searchQuery]);
 
-    const handleDeleteRoutine = async (routine: IRoutine) => {
-        if (!confirm(`Are you sure you want to delete "${routine.title}"?`)) {
-            return;
-        }
+    const handleDeleteRoutine = async () => {
+        if (!confirmDeleteId) return;
 
         try {
-            const response = await fetch(`/web-bff/routines/${routine._id}`, {
+            const response = await fetch(`/web-bff/routines/${confirmDeleteId}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -50,9 +63,11 @@ const RoutineManagerModal: React.FC<RoutineManagerModalProps> = ({ onClose }) =>
             }
 
             // Data will refresh via WebSocket
+            setConfirmDeleteId(null);
+            showAlert('Success', 'Routine deleted successfully', 'success');
         } catch (error) {
             console.error('Delete error:', error);
-            alert('Failed to delete routine');
+            showAlert('Error', 'Failed to delete routine', 'error');
         }
     };
 
@@ -95,7 +110,7 @@ const RoutineManagerModal: React.FC<RoutineManagerModalProps> = ({ onClose }) =>
                             <Edit2 className="w-4 h-4" />
                         </button>
                         <button
-                            onClick={() => handleDeleteRoutine(routine)}
+                            onClick={() => setConfirmDeleteId(routine._id)}
                             className="p-2 text-text-secondary hover:text-signal-alert hover:bg-signal-alert/10 rounded-lg transition-colors"
                         >
                             <Trash2 className="w-4 h-4" />
@@ -122,6 +137,24 @@ const RoutineManagerModal: React.FC<RoutineManagerModalProps> = ({ onClose }) =>
 
     return (
         <>
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                variant={alertConfig.variant}
+            />
+
+            <ConfirmModal
+                isOpen={!!confirmDeleteId}
+                onClose={() => setConfirmDeleteId(null)}
+                onConfirm={handleDeleteRoutine}
+                title="Delete Routine"
+                message="Are you sure you want to delete this routine? This cannot be undone."
+                confirmText="Delete"
+                variant="danger"
+            />
+
             <Modal isOpen={true} onClose={onClose} title="Routine Manager">
                 <div className="space-y-4">
                     {/* Header Actions */}

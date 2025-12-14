@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import { X, ChefHat, Clock, Users, Plus, Trash2, Loader, AlertTriangle, Check } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
-import { IRecipe } from './RecipeList';
+import { IRecipe } from '../../types';
 
 interface CreateRecipeModalProps {
     onClose: () => void;
@@ -22,8 +22,8 @@ const CreateRecipeModal: React.FC<CreateRecipeModalProps> = ({ onClose, onRecipe
     const [formData, setFormData] = useState({
         name: '',
         description: '',
-        prepTime: 15,
-        cookTime: 30,
+        prepTimeMinutes: 15,
+        cookTimeMinutes: 30,
         servings: 4,
         ingredients: [''],
         instructions: ['']
@@ -33,7 +33,7 @@ const CreateRecipeModal: React.FC<CreateRecipeModalProps> = ({ onClose, onRecipe
         const { name, value } = e.target;
         setFormData(prev => ({
             ...prev,
-            [name]: ['prepTime', 'cookTime', 'servings'].includes(name) ? parseInt(value) || 0 : value
+            [name]: ['prepTimeMinutes', 'cookTimeMinutes', 'servings'].includes(name) ? parseInt(value) || 0 : value
         }));
     };
 
@@ -124,8 +124,8 @@ const CreateRecipeModal: React.FC<CreateRecipeModalProps> = ({ onClose, onRecipe
                                 <Clock className="absolute left-3 top-3 w-5 h-5 text-text-tertiary" />
                                 <input
                                     type="number"
-                                    name="prepTime"
-                                    value={formData.prepTime}
+                                    name="prepTimeMinutes"
+                                    value={formData.prepTimeMinutes}
                                     onChange={handleChange}
                                     className="w-full pl-10 p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
                                 />
@@ -139,8 +139,8 @@ const CreateRecipeModal: React.FC<CreateRecipeModalProps> = ({ onClose, onRecipe
                                 <Clock className="absolute left-3 top-3 w-5 h-5 text-text-tertiary" />
                                 <input
                                     type="number"
-                                    name="cookTime"
-                                    value={formData.cookTime}
+                                    name="cookTimeMinutes"
+                                    value={formData.cookTimeMinutes}
                                     onChange={handleChange}
                                     className="w-full pl-10 p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
                                 />

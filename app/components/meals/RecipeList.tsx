@@ -9,6 +9,8 @@ import { Plus, Search, ChefHat, Clock, Users, Pencil, Trash2 } from 'lucide-reac
 import { useSession } from '../layout/SessionContext';
 import CreateRecipeModal from './CreateRecipeModal';
 import EditRecipeModal from './EditRecipeModal';
+import AlertModal from '../shared/AlertModal';
+import ConfirmModal from '../shared/ConfirmModal';
 
 import { IRecipe } from '../../types';
 
@@ -23,6 +25,19 @@ const RecipeList: React.FC<RecipeListProps> = ({ recipes: initialRecipes }) => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [editingRecipe, setEditingRecipe] = useState<IRecipe | null>(null);
 
+    // Modal States
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean, title: string, message: string, variant: 'info' | 'error' | 'success' }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        variant: 'info'
+    });
+
+    const showAlert = (title: string, message: string, variant: 'info' | 'error' | 'success' = 'info') => {
+        setAlertConfig({ isOpen: true, title, message, variant });
+    };
+
     const handleRecipeCreated = (newRecipe: IRecipe) => {
         setRecipes([newRecipe, ...recipes]);
     };
@@ -31,11 +46,11 @@ const RecipeList: React.FC<RecipeListProps> = ({ recipes: initialRecipes }) => {
         setRecipes(recipes.map(r => r._id === updatedRecipe._id ? updatedRecipe : r));
     };
 
-    const handleDeleteRecipe = async (recipeId: string) => {
-        if (!confirm('Are you sure you want to delete this recipe? This action cannot be undone.')) return;
+    const handleDeleteRecipe = async () => {
+        if (!confirmDeleteId) return;
 
         try {
-            const response = await fetch(`/web-bff/meals/recipes/${recipeId}`, {
+            const response = await fetch(`/web-bff/meals/recipes/${confirmDeleteId}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -47,15 +62,35 @@ const RecipeList: React.FC<RecipeListProps> = ({ recipes: initialRecipes }) => {
                 throw new Error(data.message || 'Failed to delete recipe');
             }
 
-            setRecipes(recipes.filter(r => r._id !== recipeId));
+            setRecipes(recipes.filter(r => r._id !== confirmDeleteId));
+            setConfirmDeleteId(null);
+            showAlert('Success', 'Recipe deleted successfully', 'success');
         } catch (err: any) {
             console.error("Failed to delete recipe:", err);
-            alert(err.message || "Failed to delete recipe");
+            showAlert('Error', err.message || "Failed to delete recipe", 'error');
         }
     };
 
     return (
         <div className="space-y-6">
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                variant={alertConfig.variant}
+            />
+
+            <ConfirmModal
+                isOpen={!!confirmDeleteId}
+                onClose={() => setConfirmDeleteId(null)}
+                onConfirm={handleDeleteRecipe}
+                title="Delete Recipe"
+                message="Are you sure you want to delete this recipe? This action cannot be undone."
+                confirmText="Delete"
+                variant="danger"
+            />
+
             <div className="flex justify-between items-center">
                 <h2 className="text-xl font-bold text-text-primary">Recipes</h2>
                 {user?.role === 'Parent' && (
@@ -102,7 +137,7 @@ const RecipeList: React.FC<RecipeListProps> = ({ recipes: initialRecipes }) => {
                                             <Pencil className="w-4 h-4" />
                                         </button>
                                         <button
-                                            onClick={() => handleDeleteRecipe(recipe._id)}
+                                            onClick={() => setConfirmDeleteId(recipe._id)}
                                             className="p-1.5 text-text-tertiary hover:text-signal-alert hover:bg-signal-alert/10 rounded-lg transition-colors"
                                             title="Delete Recipe"
                                         >
@@ -111,7 +146,7 @@ const RecipeList: React.FC<RecipeListProps> = ({ recipes: initialRecipes }) => {
                                     </div>
                                 )}
                             </div>
-                            <h3 className="font-medium text-text-primary mb-1">{recipe.title}</h3>
+                            <h3 className="font-medium text-text-primary mb-1">{recipe.name}</h3>
                             <p className="text-sm text-text-secondary line-clamp-2 mb-3">{recipe.description || "No description."}</p>
 
                             <div className="flex items-center space-x-4 text-xs text-text-tertiary">

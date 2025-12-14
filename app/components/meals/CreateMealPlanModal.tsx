@@ -7,7 +7,8 @@
 import React, { useState } from 'react';
 import { X, Calendar, Loader, AlertTriangle, Check } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
-import { IMealPlan } from './MealPlanList';
+import { IMealPlan } from '../../types';
+import Modal from '../shared/Modal';
 
 interface CreateMealPlanModalProps {
     onClose: () => void;
@@ -74,62 +75,51 @@ const CreateMealPlanModal: React.FC<CreateMealPlanModalProps> = ({ onClose, onMe
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-            <div className="relative w-full max-w-md p-6 bg-bg-surface rounded-xl shadow-xl border border-border-subtle" onClick={e => e.stopPropagation()}>
-                <button onClick={onClose} className="absolute top-4 right-4 p-1 rounded-full text-text-secondary hover:bg-border-subtle">
-                    <X className="w-5 h-5" />
+        <Modal isOpen={true} onClose={onClose} title="New Meal Plan" maxWidth="max-w-md" zIndex="z-[60]">
+            <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Start Date */}
+                <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">Start Date</label>
+                    <input
+                        type="date"
+                        name="startDate"
+                        value={formData.startDate}
+                        onChange={handleChange}
+                        className="w-full p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
+                    />
+                </div>
+
+                {/* End Date */}
+                <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">End Date</label>
+                    <input
+                        type="date"
+                        name="endDate"
+                        value={formData.endDate}
+                        onChange={handleChange}
+                        className="w-full p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
+                    />
+                </div>
+
+                {/* Error */}
+                {error && (
+                    <div className="flex items-center text-sm text-signal-alert bg-signal-alert/10 p-3 rounded-lg">
+                        <AlertTriangle className="w-4 h-4 mr-2 flex-shrink-0" />
+                        {error}
+                    </div>
+                )}
+
+                {/* Submit */}
+                <button
+                    type="submit"
+                    disabled={isLoading}
+                    className={`w-full flex justify-center items-center py-3 px-4 rounded-lg text-white font-medium transition-all
+                        ${isLoading ? 'bg-action-primary/70 cursor-not-allowed' : 'bg-action-primary hover:bg-action-primary/90 shadow-md hover:shadow-lg'}`}
+                >
+                    {isLoading ? <Loader className="w-5 h-5 animate-spin" /> : <><Check className="w-5 h-5 mr-2" /> Create Plan</>}
                 </button>
-
-                <h2 className="text-xl font-bold text-text-primary mb-6 flex items-center">
-                    <Calendar className="w-6 h-6 mr-2 text-action-primary" />
-                    New Meal Plan
-                </h2>
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Start Date */}
-                    <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-1">Start Date</label>
-                        <input
-                            type="date"
-                            name="startDate"
-                            value={formData.startDate}
-                            onChange={handleChange}
-                            className="w-full p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
-                        />
-                    </div>
-
-                    {/* End Date */}
-                    <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-1">End Date</label>
-                        <input
-                            type="date"
-                            name="endDate"
-                            value={formData.endDate}
-                            onChange={handleChange}
-                            className="w-full p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
-                        />
-                    </div>
-
-                    {/* Error */}
-                    {error && (
-                        <div className="flex items-center text-sm text-signal-alert bg-signal-alert/10 p-3 rounded-lg">
-                            <AlertTriangle className="w-4 h-4 mr-2 flex-shrink-0" />
-                            {error}
-                        </div>
-                    )}
-
-                    {/* Submit */}
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        className={`w-full flex justify-center items-center py-3 px-4 rounded-lg text-white font-medium transition-all
-                            ${isLoading ? 'bg-action-primary/70 cursor-not-allowed' : 'bg-action-primary hover:bg-action-primary/90 shadow-md hover:shadow-lg'}`}
-                    >
-                        {isLoading ? <Loader className="w-5 h-5 animate-spin" /> : <><Check className="w-5 h-5 mr-2" /> Create Plan</>}
-                    </button>
-                </form>
-            </div>
-        </div>
+            </form>
+        </Modal>
     );
 };
 

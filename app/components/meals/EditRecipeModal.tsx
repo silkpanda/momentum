@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import { X, ChefHat, Clock, Users, Plus, Trash2, Loader, AlertTriangle, Check } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
-import { IRecipe } from './RecipeList';
+import { IRecipe } from '../../types';
 
 interface EditRecipeModalProps {
     recipe: IRecipe;
@@ -26,8 +26,8 @@ const EditRecipeModal: React.FC<EditRecipeModalProps> = ({ recipe, onClose, onRe
         prepTime: recipe.prepTime || 0,
         cookTime: recipe.cookTime || 0,
         servings: recipe.servings || 4,
-        ingredients: recipe.ingredients.length > 0 ? recipe.ingredients : [''],
-        instructions: recipe.instructions.length > 0 ? recipe.instructions : ['']
+        ingredients: (recipe.ingredients?.length || 0) > 0 ? recipe.ingredients! : [''],
+        instructions: (recipe.instructions?.length || 0) > 0 ? recipe.instructions! : ['']
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
