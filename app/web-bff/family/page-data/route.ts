@@ -8,6 +8,8 @@ import { headers } from 'next/headers';
 import { API_BASE_URL } from '@/lib/config';
 import { populateTaskAssignments } from '../../utils/populateTaskAssignments';
 
+export const dynamic = 'force-dynamic';
+
 // Internal API URLs
 const AUTH_ME_URL = `${API_BASE_URL}/auth/me`;
 const TASK_API_URL = `${API_BASE_URL}/tasks`;
@@ -48,15 +50,16 @@ export async function GET() {
         // 2. Make parallel calls to the internal 'momentum-api' with the householdId
         const [householdResponse, taskResponse, questResponse, storeResponse, mealPlansResponse, recipesResponse, restaurantsResponse, routineResponse] = await Promise.all([
             fetch(`${API_BASE_URL}/households/${householdId}`, {
-                headers: { 'Authorization': authorization }
+                headers: { 'Authorization': authorization },
+                cache: 'no-store'
             }),
-            fetch(TASK_API_URL, { headers: { 'Authorization': authorization } }),
-            fetch(QUEST_API_URL, { headers: { 'Authorization': authorization } }),
-            fetch(STORE_API_URL, { headers: { 'Authorization': authorization } }),
-            fetch(`${API_BASE_URL}/meals/plans`, { headers: { 'Authorization': authorization } }),
-            fetch(`${API_BASE_URL}/meals/recipes`, { headers: { 'Authorization': authorization } }),
-            fetch(`${API_BASE_URL}/meals/restaurants`, { headers: { 'Authorization': authorization } }),
-            fetch(ROUTINE_API_URL, { headers: { 'Authorization': authorization } }),
+            fetch(TASK_API_URL, { headers: { 'Authorization': authorization }, cache: 'no-store' }),
+            fetch(QUEST_API_URL, { headers: { 'Authorization': authorization }, cache: 'no-store' }),
+            fetch(STORE_API_URL, { headers: { 'Authorization': authorization }, cache: 'no-store' }),
+            fetch(`${API_BASE_URL}/meals/plans`, { headers: { 'Authorization': authorization }, cache: 'no-store' }),
+            fetch(`${API_BASE_URL}/meals/recipes`, { headers: { 'Authorization': authorization }, cache: 'no-store' }),
+            fetch(`${API_BASE_URL}/meals/restaurants`, { headers: { 'Authorization': authorization }, cache: 'no-store' }),
+            fetch(ROUTINE_API_URL, { headers: { 'Authorization': authorization }, cache: 'no-store' }),
         ]);
 
         // 3. Check all responses

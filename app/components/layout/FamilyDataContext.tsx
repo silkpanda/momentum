@@ -5,7 +5,7 @@ import { useSession } from './SessionContext';
 import { IHouseholdMemberProfile, ITask, IStoreItem, IRecipe, IMealPlan, IQuest, IRoutine, IRestaurant } from '../../types';
 import { useSocketEvent } from '../../../lib/hooks/useSocket';
 import { useSocketContext } from '../../../lib/providers/SocketProvider';
-import { SOCKET_EVENTS, TaskUpdatedEvent, MemberPointsUpdatedEvent, StoreItemUpdatedEvent, HouseholdUpdatedEvent, QuestUpdatedEvent, RoutineUpdatedEvent } from '../../../lib/socket';
+import { SOCKET_EVENTS, TaskUpdatedEvent, MemberPointsUpdatedEvent, StoreItemUpdatedEvent, HouseholdUpdatedEvent, QuestUpdatedEvent, RoutineUpdatedEvent, MealPlanUpdatedEvent } from '../../../lib/socket';
 
 interface FamilyData {
     members: IHouseholdMemberProfile[];
@@ -69,7 +69,8 @@ export const FamilyDataProvider: React.FC<FamilyDataProviderProps> = ({ children
 
         try {
             const response = await fetch('/web-bff/family/page-data', {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 'Authorization': `Bearer ${token}` },
+                cache: 'no-store'
             });
 
             if (!response.ok) {
@@ -103,14 +104,20 @@ export const FamilyDataProvider: React.FC<FamilyDataProviderProps> = ({ children
     }, [fetchData]);
 
     // WebSocket Listeners
-    const { socket } = useSocketContext(); // We need socket instance to emit join
+    const { socket, isConnected } = useSocketContext(); // We need socket instance to emit join
 
     useEffect(() => {
-        if (socket && socket.connected && householdId) {
-            console.log('[FamilyDataContext] Joining household room:', householdId);
+        if (socket && isConnected && householdId) {
+            console.log(`[FamilyDataContext] Joining household room: ${householdId} (Socket ID: ${socket.id})`);
             socket.emit('join_household', householdId);
+        } else {
+            console.log('[FamilyDataContext] Waiting to join room...', {
+                hasSocket: !!socket,
+                connected: isConnected,
+                hasHouseholdId: !!householdId
+            });
         }
-    }, [socket, householdId]);
+    }, [socket, isConnected, householdId]);
 
     // Re-join on reconnect
     useEffect(() => {
@@ -124,6 +131,11 @@ export const FamilyDataProvider: React.FC<FamilyDataProviderProps> = ({ children
         socket.on('connect', onConnect);
         return () => { socket.off('connect', onConnect); }
     }, [socket, householdId]);
+
+    useSocketEvent<MealPlanUpdatedEvent>(SOCKET_EVENTS.MEAL_PLAN_UPDATED, (data) => {
+        console.log('[WebSocket] Meal Plan Updated:', data);
+        fetchData(false); // Silent refresh
+    });
 
     useSocketEvent<TaskUpdatedEvent>(SOCKET_EVENTS.TASK_UPDATED, (data) => {
         console.log('[WebSocket] Task Updated:', data);

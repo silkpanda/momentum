@@ -167,7 +167,16 @@ const MealPlannerModal: React.FC<MealPlannerModalProps> = ({ onClose }) => {
                                         {/* Days Grid */}
                                         {isExpanded && (
                                             <div className="border border-border-subtle border-t-0 rounded-b-lg p-4 bg-bg-canvas/30 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                                                {Array.from({ length: 7 }).map((_, i) => {
+                                                {(() => {
+                                                    // Parse dates accurately (ignoring time)
+                                                    const s = new Date(plan.startDate);
+                                                    const e = new Date(plan.endDate);
+                                                    const diffTime = Math.abs(e.getTime() - s.getTime());
+                                                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                                                    const dayCount = Math.max(1, Math.min(diffDays, 7)); // Clamp between 1 and 7 just in case
+
+                                                    return Array.from({ length: dayCount });
+                                                })().map((_, i) => {
                                                     // Generate date for this day of the week
                                                     const currentDate = new Date(startDateLocal);
                                                     currentDate.setDate(startDateLocal.getDate() + i);

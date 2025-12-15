@@ -138,6 +138,14 @@ export interface HouseholdUpdatedEvent {
     memberProfileId?: string;
 }
 
+export interface MealPlanUpdatedEvent {
+    type: 'create' | 'update' | 'delete';
+    mealPlan?: any;
+    mealPlanId?: string;
+    mealId?: string;
+    householdId?: string | object;
+}
+
 // Event names as constants
 export const SOCKET_EVENTS = {
     TASK_UPDATED: 'task_updated',
@@ -146,6 +154,7 @@ export const SOCKET_EVENTS = {
     MEMBER_POINTS_UPDATED: 'member_points_updated',
     STORE_ITEM_UPDATED: 'store_item_updated',
     HOUSEHOLD_UPDATED: 'household_updated',
+    MEAL_PLAN_UPDATED: 'meal_plan_updated',
 } as const;
 
 export type SocketEventName = typeof SOCKET_EVENTS[keyof typeof SOCKET_EVENTS];
