@@ -23,7 +23,7 @@ import Modal from '../shared/Modal';
 
 interface CreateTaskModalProps {
     onClose: () => void;
-    onTaskCreated: (newTask: ITask) => void;
+    onTaskCreated: (newTasks: ITask[]) => void;
     householdMembers: IHouseholdMemberProfile[];
 }
 
@@ -76,30 +76,56 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onTaskCreate
             // 3. Sanitize Data
             const sanitizedData = sanitizeFormData(formData, TASK_FORM_FIELDS);
 
-            const response = await fetch('/web-bff/tasks', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    title: sanitizedData.title,
-                    description: sanitizedData.description,
-                    pointsValue: sanitizedData.pointsValue,
-                    assignedTo: assignedTo,
-                }),
-            });
+            // 4. Create separate tasks for each assigned member (Frontend Splitting)
+            // This ensures each member has their own independent task instance.
+            const createPromises = assignedTo.map(memberId =>
+                fetch('/web-bff/tasks', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        title: sanitizedData.title,
+                        description: sanitizedData.description,
+                        pointsValue: sanitizedData.pointsValue,
+                        assignedTo: [memberId], // Create task for SINGLE member
+                    }),
+                }).then(async res => {
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.message || 'Failed to create task for a member.');
 
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to create task.');
+                    const createdTask = data.data.task;
+
+                    // Manually populate assignedTo if it's just IDs (to fix "Unassigned" in UI)
+                    if (createdTask.assignedTo && createdTask.assignedTo.length > 0 && typeof createdTask.assignedTo[0] === 'string') {
+                        const memberId = createdTask.assignedTo[0];
+                        const member = householdMembers.find(m => m._id === memberId);
+                        if (member) {
+                            createdTask.assignedTo = [{
+                                _id: member._id,
+                                displayName: member.displayName,
+                                profileColor: member.profileColor,
+                                familyMemberId: member.familyMemberId // preserving potential structure match
+                            }];
+                        }
+                    }
+                    return createdTask;
+                })
+            );
+
+            const createdTasks = await Promise.all(createPromises);
+
+            // Pass all created tasks to parent
+            if (createdTasks.length > 0) {
+                onTaskCreated(createdTasks);
             }
 
-            onTaskCreated(data.data.task);
             onClose();
 
         } catch (err: any) {
-            setErrors(prev => ({ ...prev, global: err.message }));
+            console.error(err);
+            setErrors(prev => ({ ...prev, global: err.message || 'One or more tasks failed to create.' }));
         } finally {
             setIsLoading(false);
         }

@@ -24,7 +24,6 @@ const CreateRecipeModal: React.FC<CreateRecipeModalProps> = ({ onClose, onRecipe
         description: '',
         prepTimeMinutes: 15,
         cookTimeMinutes: 30,
-        servings: 4,
         ingredients: [''],
         instructions: ['']
     });
@@ -33,7 +32,7 @@ const CreateRecipeModal: React.FC<CreateRecipeModalProps> = ({ onClose, onRecipe
         const { name, value } = e.target;
         setFormData(prev => ({
             ...prev,
-            [name]: ['prepTimeMinutes', 'cookTimeMinutes', 'servings'].includes(name) ? parseInt(value) || 0 : value
+            [name]: ['prepTimeMinutes', 'cookTimeMinutes'].includes(name) ? parseInt(value) || 0 : value
         }));
     };
 
@@ -147,21 +146,8 @@ const CreateRecipeModal: React.FC<CreateRecipeModalProps> = ({ onClose, onRecipe
                             </div>
                         </div>
 
-                        {/* Servings */}
-                        <div>
-                            <label className="block text-sm font-medium text-text-secondary mb-1">Servings</label>
-                            <div className="relative">
-                                <Users className="absolute left-3 top-3 w-5 h-5 text-text-tertiary" />
-                                <input
-                                    type="number"
-                                    name="servings"
-                                    value={formData.servings}
-                                    onChange={handleChange}
-                                    className="w-full pl-10 p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
-                                />
-                            </div>
-                        </div>
                     </div>
+
 
                     {/* Ingredients */}
                     <div>
@@ -234,8 +220,8 @@ const CreateRecipeModal: React.FC<CreateRecipeModalProps> = ({ onClose, onRecipe
                         {isLoading ? <Loader className="w-5 h-5 animate-spin" /> : <><Check className="w-5 h-5 mr-2" /> Save Recipe</>}
                     </button>
                 </form>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 

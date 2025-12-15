@@ -379,9 +379,9 @@ const TaskManagerModal: React.FC<TaskManagerModalProps> = ({ onClose }) => {
                 <CreateTaskModal
                     householdMembers={members}
                     onClose={() => setShowCreateModal(false)}
-                    onTaskCreated={(newTask) => {
+                    onTaskCreated={(newTasks) => {
                         setShowCreateModal(false);
-                        addTask(newTask);
+                        newTasks.forEach(task => addTask(task));
                         refresh();
                     }}
                 />

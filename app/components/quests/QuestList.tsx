@@ -4,39 +4,75 @@
 // =========================================================
 'use client';
 
-import React, { useState } from 'react';
-import { Plus, Search, Filter } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, Search, Loader, AlertTriangle } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
 import QuestItem from './QuestItem';
 import CreateQuestModal from './CreateQuestModal';
+import { IQuest, IHouseholdMemberProfile } from '../../types';
 
-export interface IQuest {
-    _id: string;
-    title: string;
-    description?: string;
-    pointsValue: number;
-    questType: 'one-time' | 'recurring';
-    status: 'active' | 'claimed' | 'completed' | 'approved';
-    createdBy: string;
-    claimedBy?: string[]; // Array of member IDs who claimed it
-    completedBy?: string[]; // Array of member IDs who completed it
-    maxClaims?: number;
-    dueDate?: string;
-    recurrence?: {
-        frequency: 'daily' | 'weekly' | 'monthly';
-        nextReset: string;
-    };
-}
-
-interface QuestListProps {
-    initialQuests: IQuest[];
-}
-
-const QuestList: React.FC<QuestListProps> = ({ initialQuests }) => {
-    const { user } = useSession();
-    const [quests, setQuests] = useState<IQuest[]>(initialQuests);
+const QuestList: React.FC = () => {
+    const { user, token } = useSession();
+    const [quests, setQuests] = useState<IQuest[]>([]);
+    const [members, setMembers] = useState<IHouseholdMemberProfile[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    const [filter, setFilter] = useState<'all' | 'active' | 'claimed' | 'completed'>('all');
+    const [filter, setFilter] = useState<'all' | 'active' | 'claimed' | 'completed' | 'approved'>('all');
+
+    const fetchData = useCallback(async () => {
+        if (!token) return;
+        setLoading(true);
+        try {
+            const response = await fetch('/web-bff/quests/page-data', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!response.ok) throw new Error('Failed to fetch quests');
+
+            const data = await response.json();
+            if (data.quests && data.memberProfiles) {
+                setQuests(data.quests);
+                setMembers(data.memberProfiles);
+                setError(null);
+            } else {
+                throw new Error('Invalid data format received');
+            }
+        } catch (e: any) {
+            setError(e.message);
+        } finally {
+            setLoading(false);
+        }
+    }, [token]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    // Helper to get status for current user
+    const getCurrentUserProfileId = () => {
+        if (!user || !members.length) return undefined;
+        // Assuming familyMemberId is populated or matches user._id
+        const profile = members.find(m => m.familyMemberId._id === user._id);
+        return profile?._id;
+    };
+
+    const currentUserProfileId = getCurrentUserProfileId();
+
+    const getQuestStatus = (quest: IQuest): string => {
+        if (!currentUserProfileId) return 'active'; // Default to active/available if no user context
+
+        const claim = quest.claims?.find(c => c.memberId === currentUserProfileId);
+        if (claim) {
+            // Map claim status to filter status
+            // Claim statuses: 'claimed', 'completed', 'approved'
+            return claim.status;
+        }
+
+        // If not claimed, check if it's available (active)
+        // Ignoring maxClaims logic for simplicity in list view, or assumes backend returns valid quests
+        return 'active';
+    };
 
     const handleQuestCreated = (newQuest: IQuest) => {
         setQuests([newQuest, ...quests]);
@@ -52,8 +88,22 @@ const QuestList: React.FC<QuestListProps> = ({ initialQuests }) => {
 
     const filteredQuests = quests.filter(quest => {
         if (filter === 'all') return true;
-        return quest.status === filter;
+        const status = getQuestStatus(quest);
+        return status === filter;
     });
+
+    if (loading && quests.length === 0) {
+        return <div className="p-8 text-center"><Loader className="w-6 h-6 animate-spin mx-auto text-action-primary" /></div>;
+    }
+
+    if (error) {
+        return (
+            <div className="p-4 bg-signal-alert/10 text-signal-alert rounded-lg flex items-center">
+                <AlertTriangle className="w-5 h-5 mr-2" />
+                {error}
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -77,7 +127,7 @@ const QuestList: React.FC<QuestListProps> = ({ initialQuests }) => {
 
             {/* Filters */}
             <div className="flex items-center space-x-2 overflow-x-auto pb-2">
-                {(['all', 'active', 'claimed', 'completed'] as const).map((f) => (
+                {(['all', 'active', 'claimed', 'completed', 'approved'] as const).map((f) => (
                     <button
                         key={f}
                         onClick={() => setFilter(f)}
@@ -87,7 +137,7 @@ const QuestList: React.FC<QuestListProps> = ({ initialQuests }) => {
                                 : 'bg-bg-surface text-text-secondary hover:bg-border-subtle'
                             }`}
                     >
-                        {f}
+                        {f === 'active' ? 'Available' : f}
                     </button>
                 ))}
             </div>
@@ -99,6 +149,7 @@ const QuestList: React.FC<QuestListProps> = ({ initialQuests }) => {
                         <QuestItem
                             key={quest._id}
                             quest={quest}
+                            currentUserProfileId={currentUserProfileId}
                             onUpdate={handleQuestUpdated}
                             onDelete={handleQuestDeleted}
                         />

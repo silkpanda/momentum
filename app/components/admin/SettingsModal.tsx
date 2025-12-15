@@ -5,6 +5,7 @@ import { Palette, Lock, Check } from 'lucide-react';
 import Modal from '../shared/Modal';
 import { useTheme } from '../layout/ThemeContext';
 import { useSession } from '../layout/SessionContext';
+import InviteCodeManager from '../settings/InviteCodeManager';
 
 interface SettingsModalProps {
     onClose: () => void;
@@ -35,8 +36,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                     onClick={() => !isLocked && setTheme(theme.id)}
                                     disabled={isLocked}
                                     className={`relative p-4 rounded-xl border-2 text-left transition-all ${isSelected
-                                            ? 'border-action-primary bg-action-primary/5'
-                                            : 'border-border-subtle hover:border-action-primary/50 bg-bg-surface'
+                                        ? 'border-action-primary bg-action-primary/5'
+                                        : 'border-border-subtle hover:border-action-primary/50 bg-bg-surface'
                                         } ${isLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                                 >
                                     <div className="flex justify-between items-start mb-2">
@@ -95,8 +96,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                         </div>
                     </div>
                 </section>
+
+                {/* Invite Code Manager */}
+                <InviteCodeManager />
             </div>
-        </Modal>
+        </Modal >
     );
 };
 

@@ -15,7 +15,7 @@ interface ApprovalsModalProps {
 
 const ApprovalsModal: React.FC<ApprovalsModalProps> = ({ onClose }) => {
     const { token } = useSession();
-    const { tasks, members } = useFamilyData();
+    const { tasks, members, updateTask, refresh } = useFamilyData();
     const [isProcessing, setIsProcessing] = useState(false);
 
     // Modal States
@@ -39,6 +39,9 @@ const ApprovalsModal: React.FC<ApprovalsModalProps> = ({ onClose }) => {
         setIsProcessing(true);
 
         try {
+            // Optimistic Update
+            updateTask(taskId, { status: 'Approved' });
+
             const response = await fetch(`/web-bff/tasks/${taskId}/approve`, {
                 method: 'POST',
                 headers: {
@@ -51,13 +54,16 @@ const ApprovalsModal: React.FC<ApprovalsModalProps> = ({ onClose }) => {
                 throw new Error('Failed to approve task');
             }
 
-            // Data will refresh via WebSocket
+            // Silent refresh in background to ensure consistency
+            refresh();
+
             if (pendingTasks.length === 1) {
-                // Last approval - show success and close
                 setTimeout(() => onClose(), 500);
             }
         } catch (error) {
             console.error('Approve error:', error);
+            // Revert on error (could be improved with undo log, but simplest is full refresh)
+            refresh();
             showAlert('Error', 'Failed to approve task', 'error');
         } finally {
             setIsProcessing(false);
@@ -68,30 +74,32 @@ const ApprovalsModal: React.FC<ApprovalsModalProps> = ({ onClose }) => {
         if (isProcessing || !confirmRejectId) return;
 
         setIsProcessing(true);
+        const taskId = confirmRejectId;
 
         try {
-            const response = await fetch(`/web-bff/tasks/${confirmRejectId}`, {
-                method: 'PATCH',
+            // Optimistic Update
+            updateTask(taskId, { status: 'Pending', completedBy: undefined });
+
+            const response = await fetch(`/web-bff/tasks/${taskId}/reject`, {
+                method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    status: 'Pending',
-                    isCompleted: false,
-                    completedBy: null
-                })
+                }
             });
 
             if (!response.ok) {
                 throw new Error('Failed to reject task');
             }
 
-            // Data will refresh via WebSocket
+            // Silent refresh
+            refresh();
+
             setConfirmRejectId(null);
             showAlert('Success', 'Task rejected. It has been moved back to pending list.', 'success');
         } catch (error) {
             console.error('Reject error:', error);
+            refresh();
             showAlert('Error', 'Failed to reject task', 'error');
         } finally {
             setIsProcessing(false);

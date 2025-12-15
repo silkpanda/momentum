@@ -4,6 +4,7 @@ import React, { createContext, useState, useEffect, useCallback, ReactNode, useC
 import { useSession } from './SessionContext';
 import { IHouseholdMemberProfile, ITask, IStoreItem, IRecipe, IMealPlan, IQuest, IRoutine, IRestaurant } from '../../types';
 import { useSocketEvent } from '../../../lib/hooks/useSocket';
+import { useSocketContext } from '../../../lib/providers/SocketProvider';
 import { SOCKET_EVENTS, TaskUpdatedEvent, MemberPointsUpdatedEvent, StoreItemUpdatedEvent, HouseholdUpdatedEvent, QuestUpdatedEvent, RoutineUpdatedEvent } from '../../../lib/socket';
 
 interface FamilyData {
@@ -18,7 +19,8 @@ interface FamilyData {
     loading: boolean;
     error: string | null;
     addTask: (task: ITask) => void;
-    refresh: () => Promise<void>;
+    updateTask: (taskId: string, updates: Partial<ITask>) => void;
+    refresh: (silent?: boolean) => Promise<void>;
 }
 
 export const FamilyDataContext = createContext<FamilyData | undefined>(undefined);
@@ -52,14 +54,17 @@ export const FamilyDataProvider: React.FC<FamilyDataProviderProps> = ({ children
         setTasks(prev => [task, ...prev]);
     }, []);
 
-    const fetchData = useCallback(async () => {
+    const updateTask = useCallback((taskId: string, updates: Partial<ITask>) => {
+        setTasks(prev => prev.map(t => t._id === taskId ? { ...t, ...updates } : t));
+    }, []);
+
+    const fetchData = useCallback(async (showLoading = true) => {
         if (!token || !householdId) {
             setLoading(false);
-            return; // Don't wipe data, just stop fetching? Or should we wipe?
-            // If we logout, session clears token, we probably should wipe.
-            // But let's keep it simple for now matching original behavior.
+            return;
         }
-        setLoading(true);
+
+        if (showLoading) setLoading(true);
         setError(null);
 
         try {
@@ -89,25 +94,74 @@ export const FamilyDataProvider: React.FC<FamilyDataProviderProps> = ({ children
         } catch (e: any) {
             setError(e.message);
         } finally {
-            setLoading(false);
+            if (showLoading) setLoading(false);
         }
     }, [token, householdId]);
 
     useEffect(() => {
-        fetchData();
+        fetchData(true); // Initial load with spinner
     }, [fetchData]);
 
     // WebSocket Listeners
-    // ... (keep existing listeners)
+    const { socket } = useSocketContext(); // We need socket instance to emit join
 
-    // ... (rest of listeners)
+    useEffect(() => {
+        if (socket && socket.connected && householdId) {
+            console.log('[FamilyDataContext] Joining household room:', householdId);
+            socket.emit('join_household', householdId);
+        }
+    }, [socket, householdId]);
 
-    // ... (rest of listeners)
+    // Re-join on reconnect
+    useEffect(() => {
+        if (!socket) return;
+        const onConnect = () => {
+            if (householdId) {
+                console.log('[FamilyDataContext] Re-joining household room after reconnect:', householdId);
+                socket.emit('join_household', householdId);
+            }
+        }
+        socket.on('connect', onConnect);
+        return () => { socket.off('connect', onConnect); }
+    }, [socket, householdId]);
 
-    // ... (rest of listeners)
+    useSocketEvent<TaskUpdatedEvent>(SOCKET_EVENTS.TASK_UPDATED, (data) => {
+        console.log('[WebSocket] Task Updated:', data);
+        fetchData(false); // Silent refresh
+    });
 
-    // ... (rest of listeners)
+    useSocketEvent<MemberPointsUpdatedEvent>(SOCKET_EVENTS.MEMBER_POINTS_UPDATED, (data) => {
+        console.log('[WebSocket] Member Points Updated:', data);
+        if (data.householdId === householdId) {
+            setMembers(prev => prev.map(m =>
+                m.familyMemberId._id === data.memberId
+                    ? { ...m, pointsTotal: data.pointsTotal }
+                    : m
+            ));
+        }
+    });
 
+    useSocketEvent<StoreItemUpdatedEvent>(SOCKET_EVENTS.STORE_ITEM_UPDATED, (data) => {
+        console.log('[WebSocket] Store Item Updated:', data);
+        fetchData(false); // Silent refresh
+    });
+
+    useSocketEvent<QuestUpdatedEvent>(SOCKET_EVENTS.QUEST_UPDATED, (data) => {
+        console.log('[WebSocket] Quest Updated:', data);
+        fetchData(false); // Silent refresh
+    });
+
+    useSocketEvent<RoutineUpdatedEvent>(SOCKET_EVENTS.ROUTINE_UPDATED, (data) => {
+        console.log('[WebSocket] Routine Updated:', data);
+        fetchData(false); // Silent refresh
+    });
+
+    useSocketEvent<HouseholdUpdatedEvent>(SOCKET_EVENTS.HOUSEHOLD_UPDATED, (data) => {
+        console.log('[WebSocket] Household Updated:', data);
+        if (data.householdId === householdId) {
+            fetchData(false); // Silent refresh
+        }
+    });
     const value = {
         members,
         tasks,
@@ -120,7 +174,8 @@ export const FamilyDataProvider: React.FC<FamilyDataProviderProps> = ({ children
         loading,
         error,
         addTask,
-        refresh: fetchData
+        updateTask,
+        refresh: () => fetchData(false) // Default exposed refresh is silent
     };
 
     return (

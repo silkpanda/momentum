@@ -21,13 +21,23 @@ interface SocketProviderProps {
     children: ReactNode;
 }
 
+import { useSession } from '../../app/components/layout/SessionContext';
+
+// ... (keep surrounding code)
+
 export function SocketProvider({ children }: SocketProviderProps) {
+    const { token } = useSession();
     const [socket, setSocket] = useState<Socket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
 
     useEffect(() => {
-        // Initialize socket connection
-        const socketInstance = getSocket();
+        // If we have an existing socket and the token changes, we might want to disconnect/reconnect
+        // Or getSocket handles it? getSocket returns existing if connected.
+        // So we should strictly disconnect if we want to force re-init with new token.
+        disconnectSocket();
+
+        // Initialize socket connection with token
+        const socketInstance = getSocket(token);
         setSocket(socketInstance);
 
         // Set up connection status handlers
@@ -54,16 +64,16 @@ export function SocketProvider({ children }: SocketProviderProps) {
         socketInstance.on('disconnect', handleDisconnect);
         socketInstance.on('connect_error', handleConnectError);
 
-        // Cleanup on unmount
+        // Cleanup on unmount or token change
         return () => {
             socketInstance.off('connect', handleConnect);
             socketInstance.off('disconnect', handleDisconnect);
             socketInstance.off('connect_error', handleConnectError);
 
-            // Disconnect socket when provider unmounts
+            // Disconnect socket when provider unmounts or token changes
             disconnectSocket();
         };
-    }, []);
+    }, [token]);
 
     return (
         <SocketContext.Provider value={{ socket, isConnected }}>

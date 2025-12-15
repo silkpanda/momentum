@@ -6,7 +6,7 @@
 
 import React, { useState } from 'react';
 import { useSession } from '../layout/SessionContext';
-import { IQuest } from './QuestList';
+import { IQuest } from '../../types';
 import EditQuestModal from './EditQuestModal';
 import QuestCard from '../shared/QuestCard';
 import AlertModal from '../shared/AlertModal';
@@ -14,11 +14,12 @@ import ConfirmModal from '../shared/ConfirmModal';
 
 interface QuestItemProps {
     quest: IQuest;
+    currentUserProfileId?: string;
     onUpdate: (quest: IQuest) => void;
     onDelete: (questId: string) => void;
 }
 
-const QuestItem: React.FC<QuestItemProps> = ({ quest, onUpdate, onDelete }) => {
+const QuestItem: React.FC<QuestItemProps> = ({ quest, currentUserProfileId, onUpdate, onDelete }) => {
     const { user, token } = useSession();
     const [isLoading, setIsLoading] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -105,10 +106,14 @@ const QuestItem: React.FC<QuestItemProps> = ({ quest, onUpdate, onDelete }) => {
             <QuestCard
                 quest={{
                     ...quest,
-                    status: quest.status === 'active' ? 'Available' :
-                        quest.status === 'claimed' ? 'Active' :
-                            quest.status === 'completed' ? 'PendingApproval' :
-                                quest.status === 'approved' ? 'Completed' : 'Available'
+                    status: ((): 'Available' | 'Active' | 'PendingApproval' | 'Completed' => {
+                        const userClaim = quest.claims?.find(c => c.memberId === currentUserProfileId);
+                        if (!userClaim) return 'Available';
+                        if (userClaim.status === 'claimed') return 'Active';
+                        if (userClaim.status === 'completed') return 'PendingApproval';
+                        if (userClaim.status === 'approved') return 'Completed';
+                        return 'Available';
+                    })()
                 }}
                 isParent={isParent}
                 isLoading={isLoading}

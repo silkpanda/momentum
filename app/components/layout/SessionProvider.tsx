@@ -11,6 +11,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<UserData | null>(null);
     const [householdId, setHouseholdId] = useState<string | null>(null);
     const [token, setToken] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         console.log('[SessionProvider] Initializing');
@@ -51,12 +52,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
                         setToken(null);
                         setUser(null);
                         setHouseholdId(null);
+                    })
+                    .finally(() => {
+                        setIsLoading(false);
                     });
             } else {
                 console.log('[SessionProvider] No token found');
                 setToken(null);
                 setUser(null);
                 setHouseholdId(null);
+                setIsLoading(false);
             }
         };
 
@@ -89,7 +94,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     console.log('[SessionProvider] Rendering - user:', !!user, 'token:', !!token, 'householdId:', householdId);
 
     return (
-        <SessionContext.Provider value={{ user, householdId, token }}>
+        <SessionContext.Provider value={{ user, householdId, token, isLoading }}>
             {children}
         </SessionContext.Provider>
     );

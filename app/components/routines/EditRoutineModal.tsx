@@ -24,35 +24,33 @@ const EditRoutineModal: React.FC<EditRoutineModalProps> = ({ routine, onClose, o
 
     const [formData, setFormData] = useState({
         title: routine.title,
-        description: routine.description || '',
-        assignedTo: routine.assignedTo,
-        pointsReward: routine.pointsReward,
-        frequency: routine.schedule.frequency,
-        steps: routine.steps.map(s => s.title)
+        memberId: routine.memberId,
+        timeOfDay: routine.timeOfDay,
+        items: routine.items.map(s => s.title)
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({
             ...prev,
-            [name]: name === 'pointsReward' ? parseInt(value) || 0 : value
+            [name]: value
         }));
     };
 
-    const handleStepChange = (index: number, value: string) => {
-        const newSteps = [...formData.steps];
-        newSteps[index] = value;
-        setFormData(prev => ({ ...prev, steps: newSteps }));
+    const handleItemChange = (index: number, value: string) => {
+        const newItems = [...formData.items];
+        newItems[index] = value;
+        setFormData(prev => ({ ...prev, items: newItems }));
     };
 
-    const addStep = () => {
-        setFormData(prev => ({ ...prev, steps: [...prev.steps, ''] }));
+    const addItem = () => {
+        setFormData(prev => ({ ...prev, items: [...prev.items, ''] }));
     };
 
-    const removeStep = (index: number) => {
-        if (formData.steps.length > 1) {
-            const newSteps = formData.steps.filter((_, i) => i !== index);
-            setFormData(prev => ({ ...prev, steps: newSteps }));
+    const removeItem = (index: number) => {
+        if (formData.items.length > 1) {
+            const newItems = formData.items.filter((_, i) => i !== index);
+            setFormData(prev => ({ ...prev, items: newItems }));
         }
     };
 
@@ -60,8 +58,8 @@ const EditRoutineModal: React.FC<EditRoutineModalProps> = ({ routine, onClose, o
         e.preventDefault();
 
         // Validation
-        if (!formData.title || !formData.assignedTo || formData.steps.some(s => !s.trim())) {
-            setError('Please fill in all required fields and ensure steps are not empty.');
+        if (!formData.title || !formData.memberId || formData.items.some(s => !s.trim())) {
+            setError('Please fill in all required fields and ensure items are not empty.');
             return;
         }
 
@@ -72,8 +70,11 @@ const EditRoutineModal: React.FC<EditRoutineModalProps> = ({ routine, onClose, o
             // Format payload for API
             const payload = {
                 ...formData,
-                schedule: { frequency: formData.frequency },
-                steps: formData.steps.map(title => ({ title, isCompleted: false }))
+                items: formData.items.map((title, index) => ({
+                    title,
+                    order: index,
+                    isCompleted: false
+                }))
             };
 
             const response = await fetch(`/web-bff/routines/${routine._id}`, {
@@ -127,26 +128,15 @@ const EditRoutineModal: React.FC<EditRoutineModalProps> = ({ routine, onClose, o
                         />
                     </div>
 
-                    {/* Description */}
-                    <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-1">Description</label>
-                        <textarea
-                            name="description"
-                            value={formData.description}
-                            onChange={handleChange}
-                            rows={2}
-                            placeholder="Brief description..."
-                            className="w-full p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none transition-all resize-none"
-                        />
-                    </div>
+                    {/* Description removed */}
 
                     <div className="grid grid-cols-2 gap-4">
-                        {/* Assigned To */}
+                        {/* Assign To */}
                         <div>
                             <label className="block text-sm font-medium text-text-secondary mb-1">Assign To</label>
                             <select
-                                name="assignedTo"
-                                value={formData.assignedTo}
+                                name="memberId"
+                                value={formData.memberId}
                                 onChange={handleChange}
                                 className="w-full p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
                             >
@@ -156,56 +146,43 @@ const EditRoutineModal: React.FC<EditRoutineModalProps> = ({ routine, onClose, o
                             </select>
                         </div>
 
-                        {/* Frequency */}
+                        {/* Time of Day */}
                         <div>
-                            <label className="block text-sm font-medium text-text-secondary mb-1">Frequency</label>
+                            <label className="block text-sm font-medium text-text-secondary mb-1">Time of Day</label>
                             <select
-                                name="frequency"
-                                value={formData.frequency}
+                                name="timeOfDay"
+                                value={formData.timeOfDay}
                                 onChange={handleChange}
                                 className="w-full p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
                             >
-                                <option value="daily">Daily</option>
-                                <option value="weekly">Weekly</option>
+                                <option value="morning">Morning</option>
+                                <option value="noon">Noon</option>
+                                <option value="night">Night</option>
                             </select>
                         </div>
                     </div>
 
-                    {/* Points */}
-                    <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-1">Points Reward</label>
-                        <div className="relative">
-                            <Award className="absolute left-3 top-3 w-5 h-5 text-brand-secondary" />
-                            <input
-                                type="number"
-                                name="pointsReward"
-                                value={formData.pointsReward}
-                                onChange={handleChange}
-                                min="1"
-                                className="w-full pl-10 p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
-                            />
-                        </div>
-                    </div>
+                    {/* Points removed */}
 
-                    {/* Steps */}
+                    {/* Items */}
                     <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">Routine Steps</label>
+                        <label className="block text-sm font-medium text-text-secondary mb-2">Routine Items</label>
                         <div className="space-y-2">
-                            {formData.steps.map((step, index) => (
+                            {formData.items.map((item, index) => (
                                 <div key={index} className="flex items-center space-x-2">
                                     <div className="flex-1">
                                         <input
                                             type="text"
-                                            value={step}
-                                            onChange={(e) => handleStepChange(index, e.target.value)}
-                                            placeholder={`Step ${index + 1}`}
+                                            value={item}
+                                            onChange={(e) => handleItemChange(index, e.target.value)}
+                                            placeholder={`Item ${index + 1}`}
                                             className="w-full p-2 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
                                         />
                                     </div>
-                                    {formData.steps.length > 1 && (
+                                    {formData.items.length > 1 && (
                                         <button
                                             type="button"
-                                            onClick={() => removeStep(index)}
+                                            onClick={() => removeItem(index)}
                                             className="p-2 text-text-tertiary hover:text-signal-alert transition-colors"
                                         >
                                             <Trash2 className="w-4 h-4" />
@@ -216,10 +193,10 @@ const EditRoutineModal: React.FC<EditRoutineModalProps> = ({ routine, onClose, o
                         </div>
                         <button
                             type="button"
-                            onClick={addStep}
+                            onClick={addItem}
                             className="mt-2 text-sm text-action-primary hover:text-action-primary/80 font-medium flex items-center"
                         >
-                            <Plus className="w-4 h-4 mr-1" /> Add Step
+                            <Plus className="w-4 h-4 mr-1" /> Add Item
                         </button>
                     </div>
 

@@ -4,7 +4,7 @@
 // =========================================================
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader, AlertTriangle, Check } from 'lucide-react';
 
@@ -13,9 +13,15 @@ export default function GoogleCallbackPage() {
     const searchParams = useSearchParams();
     const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
     const [message, setMessage] = useState('Signing in with Google...');
+    const processedRef = useRef(false); // Prevent double execution in Strict Mode
 
     useEffect(() => {
+        let timeoutId: NodeJS.Timeout;
+
         const handleCallback = async () => {
+            if (processedRef.current) return;
+            processedRef.current = true;
+
             try {
                 const code = searchParams.get('code');
                 const state = searchParams.get('state'); // 'signin' or 'signup'
@@ -24,14 +30,14 @@ export default function GoogleCallbackPage() {
                 if (error) {
                     setStatus('error');
                     setMessage('You denied access. Please try again.');
-                    setTimeout(() => router.push(state === 'signup' ? '/signup' : '/login'), 3000);
+                    timeoutId = setTimeout(() => router.push(state === 'signup' ? '/signup' : '/login'), 3000);
                     return;
                 }
 
                 if (!code) {
                     setStatus('error');
                     setMessage('Invalid callback parameters');
-                    setTimeout(() => router.push('/login'), 3000);
+                    timeoutId = setTimeout(() => router.push('/login'), 3000);
                     return;
                 }
 
@@ -54,7 +60,7 @@ export default function GoogleCallbackPage() {
                 if (!response.ok || data.status === 'fail' || data.status === 'error') {
                     setStatus('error');
                     setMessage(data.message || 'Authentication failed');
-                    setTimeout(() => router.push('/login'), 3000);
+                    timeoutId = setTimeout(() => router.push('/login'), 3000);
                     return;
                 }
 
@@ -69,20 +75,24 @@ export default function GoogleCallbackPage() {
 
                 // Check if user needs onboarding
                 if (data.data?.needsOnboarding) {
-                    setTimeout(() => router.push('/onboarding'), 1500);
+                    timeoutId = setTimeout(() => router.push('/onboarding'), 1500);
                 } else {
-                    setTimeout(() => router.push('/family'), 1500);
+                    timeoutId = setTimeout(() => router.push('/family'), 1500);
                 }
 
             } catch (err: any) {
                 console.error('Callback error:', err);
                 setStatus('error');
                 setMessage('An error occurred. Please try again.');
-                setTimeout(() => router.push('/login'), 3000);
+                timeoutId = setTimeout(() => router.push('/login'), 3000);
             }
         };
 
         handleCallback();
+
+        return () => {
+            if (timeoutId) clearTimeout(timeoutId);
+        };
     }, [searchParams, router]);
 
     return (
@@ -120,7 +130,6 @@ export default function GoogleCallbackPage() {
                         </>
                     )}
 
-                    <p className="text-text-secondary">{message}</p>
                 </div>
             </div>
         </div>

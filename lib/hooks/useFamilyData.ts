@@ -21,7 +21,8 @@ export interface FamilyData {
     loading: boolean;
     error: string | null;
     addTask: (task: ITask) => void;
-    refresh: () => Promise<void>;
+    updateTask: (taskId: string, updates: Partial<ITask>) => void;
+    refresh: (silent?: boolean) => Promise<void>;
 }
 
 export const useFamilyData = (): FamilyData => {

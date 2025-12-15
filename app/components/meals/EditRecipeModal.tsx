@@ -23,9 +23,8 @@ const EditRecipeModal: React.FC<EditRecipeModalProps> = ({ recipe, onClose, onRe
     const [formData, setFormData] = useState({
         name: recipe.name,
         description: recipe.description || '',
-        prepTime: recipe.prepTime || 0,
-        cookTime: recipe.cookTime || 0,
-        servings: recipe.servings || 4,
+        prepTimeMinutes: recipe.prepTimeMinutes || 0,
+        cookTimeMinutes: recipe.cookTimeMinutes || 0,
         ingredients: (recipe.ingredients?.length || 0) > 0 ? recipe.ingredients! : [''],
         instructions: (recipe.instructions?.length || 0) > 0 ? recipe.instructions! : ['']
     });
@@ -34,7 +33,7 @@ const EditRecipeModal: React.FC<EditRecipeModalProps> = ({ recipe, onClose, onRe
         const { name, value } = e.target;
         setFormData(prev => ({
             ...prev,
-            [name]: ['prepTime', 'cookTime', 'servings'].includes(name) ? parseInt(value) || 0 : value
+            [name]: ['prepTimeMinutes', 'cookTimeMinutes'].includes(name) ? parseInt(value) || 0 : value
         }));
     };
 
@@ -125,8 +124,8 @@ const EditRecipeModal: React.FC<EditRecipeModalProps> = ({ recipe, onClose, onRe
                                 <Clock className="absolute left-3 top-3 w-5 h-5 text-text-tertiary" />
                                 <input
                                     type="number"
-                                    name="prepTime"
-                                    value={formData.prepTime}
+                                    name="prepTimeMinutes"
+                                    value={formData.prepTimeMinutes}
                                     onChange={handleChange}
                                     className="w-full pl-10 p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
                                 />
@@ -140,23 +139,8 @@ const EditRecipeModal: React.FC<EditRecipeModalProps> = ({ recipe, onClose, onRe
                                 <Clock className="absolute left-3 top-3 w-5 h-5 text-text-tertiary" />
                                 <input
                                     type="number"
-                                    name="cookTime"
-                                    value={formData.cookTime}
-                                    onChange={handleChange}
-                                    className="w-full pl-10 p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Servings */}
-                        <div>
-                            <label className="block text-sm font-medium text-text-secondary mb-1">Servings</label>
-                            <div className="relative">
-                                <Users className="absolute left-3 top-3 w-5 h-5 text-text-tertiary" />
-                                <input
-                                    type="number"
-                                    name="servings"
-                                    value={formData.servings}
+                                    name="cookTimeMinutes"
+                                    value={formData.cookTimeMinutes}
                                     onChange={handleChange}
                                     className="w-full pl-10 p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
                                 />

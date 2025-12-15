@@ -9,7 +9,7 @@ import {
 
 // Extend props to include web-specific actions if needed, or stick to shared props
 interface WebQuestCardProps extends QuestCardProps {
-    questType?: 'one-time' | 'recurring';
+    questType?: 'one-time' | 'limited' | 'unlimited';
     recurrence?: string;
     onEdit?: () => void;
     onDelete?: () => void;

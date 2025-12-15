@@ -13,6 +13,7 @@ const AUTH_ME_URL = `${API_BASE_URL}/auth/me`;
 const TASK_API_URL = `${API_BASE_URL}/tasks`;
 const QUEST_API_URL = `${API_BASE_URL}/quests`;
 const STORE_API_URL = `${API_BASE_URL}/store-items`;
+const ROUTINE_API_URL = `${API_BASE_URL}/routines`;
 
 /**
  * @desc    Get all data for the Family View page
@@ -45,7 +46,7 @@ export async function GET() {
         }
 
         // 2. Make parallel calls to the internal 'momentum-api' with the householdId
-        const [householdResponse, taskResponse, questResponse, storeResponse, mealPlansResponse, recipesResponse, restaurantsResponse] = await Promise.all([
+        const [householdResponse, taskResponse, questResponse, storeResponse, mealPlansResponse, recipesResponse, restaurantsResponse, routineResponse] = await Promise.all([
             fetch(`${API_BASE_URL}/households/${householdId}`, {
                 headers: { 'Authorization': authorization }
             }),
@@ -55,12 +56,14 @@ export async function GET() {
             fetch(`${API_BASE_URL}/meals/plans`, { headers: { 'Authorization': authorization } }),
             fetch(`${API_BASE_URL}/meals/recipes`, { headers: { 'Authorization': authorization } }),
             fetch(`${API_BASE_URL}/meals/restaurants`, { headers: { 'Authorization': authorization } }),
+            fetch(ROUTINE_API_URL, { headers: { 'Authorization': authorization } }),
         ]);
 
         // 3. Check all responses
         if (!householdResponse.ok) throw new Error('Failed to fetch household data');
         if (!taskResponse.ok) throw new Error('Failed to fetch task data');
         if (!storeResponse.ok) throw new Error('Failed to fetch store item data');
+        // routines are optional, don't throw if missing, but we expect it to work
 
         // 4. Parse data
         const householdData = await householdResponse.json();
@@ -70,6 +73,7 @@ export async function GET() {
         const mealPlansData = mealPlansResponse.ok ? await mealPlansResponse.json() : { data: { mealPlans: [] } };
         const recipesData = recipesResponse.ok ? await recipesResponse.json() : { data: { recipes: [] } };
         const restaurantsData = restaurantsResponse.ok ? await restaurantsResponse.json() : { data: { restaurants: [] } };
+        const routineData = routineResponse.ok ? await routineResponse.json() : { data: { routines: [] } };
 
         // 5. Populate task assignments with member details
         const memberProfiles = householdData.data.memberProfiles || [];
@@ -87,6 +91,7 @@ export async function GET() {
             mealPlans: mealPlansData.data.mealPlans || [],
             recipes: recipesData.data.recipes || [],
             restaurants: restaurantsData.data.restaurants || [],
+            routines: routineData.data.routines || [],
         });
 
     } catch (err: any) {

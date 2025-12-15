@@ -9,29 +9,11 @@ import { Plus, Search } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
 import RoutineItem from './RoutineItem';
 import CreateRoutineModal from './CreateRoutineModal';
+import { useFamilyData } from '../../../lib/hooks/useFamilyData';
 
-export interface IRoutineStep {
-    title: string;
-    isCompleted: boolean;
-}
+import { IRoutine, IRoutineItem } from '../../types';
 
-export interface IRoutine {
-    _id: string;
-    title: string;
-    description?: string;
-    assignedTo: string; // Member ID
-    steps: IRoutineStep[];
-    schedule: {
-        frequency: 'daily' | 'weekly';
-        days?: string[]; // e.g., ['Monday', 'Wednesday']
-        timeOfDay?: string;
-    };
-    pointsReward: number;
-    icon?: string;
-    color?: string;
-    isActive: boolean;
-    lastCompleted?: string; // ISO Date
-}
+export type { IRoutine, IRoutineItem };
 
 interface RoutineListProps {
     initialRoutines: IRoutine[];
@@ -39,6 +21,7 @@ interface RoutineListProps {
 
 const RoutineList: React.FC<RoutineListProps> = ({ initialRoutines }) => {
     const { user } = useSession();
+    const { members } = useFamilyData();
     const [routines, setRoutines] = useState<IRoutine[]>(initialRoutines);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
@@ -57,7 +40,7 @@ const RoutineList: React.FC<RoutineListProps> = ({ initialRoutines }) => {
     // Filter routines based on user role
     const displayRoutines = user?.role === 'Parent'
         ? routines
-        : routines.filter(r => r.assignedTo === user?._id && r.isActive);
+        : routines.filter(r => r.memberId === user?._id && r.isActive);
 
     return (
         <div className="space-y-6">
@@ -110,6 +93,7 @@ const RoutineList: React.FC<RoutineListProps> = ({ initialRoutines }) => {
                 <CreateRoutineModal
                     onClose={() => setIsCreateModalOpen(false)}
                     onRoutineCreated={handleRoutineCreated}
+                    members={members}
                 />
             )}
         </div>

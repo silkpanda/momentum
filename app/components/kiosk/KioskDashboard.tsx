@@ -147,7 +147,8 @@ const RemindParentButton: React.FC<{ onRemind: () => void }> = ({ onRemind }) =>
 // --- Main Kiosk Dashboard Component ---
 const KioskDashboard: React.FC = () => {
     const { householdId, user } = useSession();
-    const { members, tasks, storeItems, mealPlans, recipes, loading, error, refresh } = useFamilyData();
+    // Use updateTask from useFamilyData
+    const { members, tasks, storeItems, mealPlans, recipes, loading, error, refresh, updateTask } = useFamilyData();
 
     // Modal state
     const [selectedMember, setSelectedMember] = useState<IHouseholdMemberProfile | null>(null);
@@ -174,14 +175,14 @@ const KioskDashboard: React.FC = () => {
     // ... getTaskCount, getFocusedTask ...
     const getTaskCount = (memberProfileId: string) => {
         return tasks.filter(task =>
-            !task.isCompleted &&
+            task.status !== 'Approved' &&
             task.assignedTo?.some(assignee => assignee._id === memberProfileId)
         ).length;
     };
 
     const getFocusedTask = (member: IHouseholdMemberProfile) => {
-        if (!member.currentFocusTaskId) return undefined;
-        return tasks.find(t => t._id === member.currentFocusTaskId);
+        if (!member.focusedTaskId) return undefined;
+        return tasks.find(t => t._id === member.focusedTaskId);
     };
 
     // ... handleMemberClick, handleFocusClick, handleModalClose ...
@@ -275,8 +276,8 @@ const KioskDashboard: React.FC = () => {
     }
 
     // Calculate stats
-    const totalPendingTasks = tasks.filter(t => !t.isCompleted).length;
-    const totalCompletedTasks = tasks.filter(t => t.isCompleted).length;
+    const totalPendingTasks = tasks.filter(t => t.status !== 'Approved').length;
+    const totalCompletedTasks = tasks.filter(t => t.status === 'Approved').length;
 
     const handleParentDashboardClick = () => {
         // Prioritize the current logged-in user if they are a parent
@@ -453,6 +454,8 @@ const KioskDashboard: React.FC = () => {
                         allTasks={tasks}
                         allItems={storeItems}
                         onClose={handleModalClose}
+                        onRefresh={refresh}
+                        onUpdateTask={updateTask}
                     />
                 )
             }

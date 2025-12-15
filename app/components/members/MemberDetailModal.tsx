@@ -37,8 +37,8 @@ const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ member, onClose }
         t.assignedTo.some(a => a._id === member._id || a._id === member.familyMemberId?._id)
     );
     const activeTasks = memberTasks.filter((t) => t.status === 'Pending');
-    const focusTask = member.currentFocusTaskId
-        ? tasks.find((t) => t._id === member.currentFocusTaskId)
+    const focusTask = member.focusedTaskId
+        ? tasks.find((t) => t._id === member.focusedTaskId)
         : null;
 
     const handleSetFocus = async (taskId: string) => {
@@ -208,8 +208,8 @@ const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ member, onClose }
                                     <button
                                         key={task._id}
                                         onClick={() => handleSetFocus(task._id)}
-                                        disabled={isProcessing || task._id === member.currentFocusTaskId}
-                                        className={`w-full flex items-center justify-between p-4 bg-bg-surface border border-border-subtle rounded-xl transition-all ${task._id === member.currentFocusTaskId
+                                        disabled={isProcessing || task._id === member.focusedTaskId}
+                                        className={`w-full flex items-center justify-between p-4 bg-bg-surface border border-border-subtle rounded-xl transition-all ${task._id === member.focusedTaskId
                                             ? 'opacity-75 cursor-not-allowed'
                                             : 'hover:shadow-md'
                                             }`}
@@ -222,7 +222,7 @@ const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ member, onClose }
                                                 {task.pointsValue} pts
                                             </p>
                                         </div>
-                                        {task._id === member.currentFocusTaskId && (
+                                        {task._id === member.focusedTaskId && (
                                             <div className="flex items-center space-x-1 px-3 py-1.5 bg-yellow-500 rounded-full">
                                                 <Zap className="w-3 h-3 text-white" />
                                                 <span className="text-xs font-semibold text-white">

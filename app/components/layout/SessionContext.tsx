@@ -18,6 +18,7 @@ export interface SessionData {
     user: UserData | null;
     householdId: string | null;
     token: string | null;
+    isLoading: boolean;
 }
 
 // Create the context with a default value
@@ -25,6 +26,7 @@ export const SessionContext = createContext<SessionData>({
     user: null,
     householdId: null,
     token: null,
+    isLoading: true,
 });
 
 // Create a custom hook for easy consumption by child components

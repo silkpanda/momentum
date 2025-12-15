@@ -10,7 +10,7 @@
 
 import React, { useState } from 'react';
 import { Gift, Check, Loader, Type, X, AlertTriangle, DollarSign } from 'lucide-react';
-import { IStoreItem } from './StoreItemList';
+import { IStoreItem } from '../../types';
 import { useSession } from '../layout/SessionContext';
 
 interface EditStoreItemModalProps {
@@ -22,7 +22,8 @@ interface EditStoreItemModalProps {
 const EditStoreItemModal: React.FC<EditStoreItemModalProps> = ({ item, onClose, onItemUpdated }) => {
     const [itemName, setItemName] = useState(item.itemName);
     const [description, setDescription] = useState(item.description);
-    const [cost, setCost] = useState(item.cost); // FIX: Use 'cost' from item and rename state
+    const [cost, setCost] = useState(item.cost);
+    const [isAvailable, setIsAvailable] = useState(item.isAvailable ?? true);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const { token } = useSession();
@@ -52,7 +53,8 @@ const EditStoreItemModal: React.FC<EditStoreItemModalProps> = ({ item, onClose, 
                 body: JSON.stringify({
                     itemName,
                     description,
-                    cost, // FIX: Send correct field name 'cost'
+                    cost,
+                    isAvailable,
                 }),
             });
 
@@ -144,6 +146,20 @@ const EditStoreItemModal: React.FC<EditStoreItemModalProps> = ({ item, onClose, 
                             onChange={(e) => setDescription(e.target.value)}
                             className="block w-full rounded-md border border-border-subtle p-3 text-text-primary bg-bg-surface"
                         />
+                    </div>
+
+                    {/* Is Available Checkbox */}
+                    <div className="flex items-center space-x-3">
+                        <input
+                            id="isAvailable"
+                            type="checkbox"
+                            checked={isAvailable}
+                            onChange={(e) => setIsAvailable(e.target.checked)}
+                            className="h-5 w-5 rounded border-border-subtle text-action-primary focus:ring-action-primary"
+                        />
+                        <label htmlFor="isAvailable" className="text-sm font-medium text-text-primary">
+                            Available in Store
+                        </label>
                     </div>
 
                     {/* Error Display */}

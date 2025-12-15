@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link, Loader, AlertTriangle, Copy, Check, Trash, Settings } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
 import AlertModal from '../shared/AlertModal';
+import { useFamilyData } from '../../../lib/hooks/useFamilyData';
 import ConfirmModal from '../shared/ConfirmModal';
 
 interface IHouseholdLink {
@@ -23,6 +24,8 @@ const HouseholdLinkSettings: React.FC = () => {
     const [generating, setGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const { token } = useSession();
+    const { members } = useFamilyData();
+    const children = members.filter(m => m.role === 'Child');
 
     // Modal States
     const [confirmUnlinkId, setConfirmUnlinkId] = useState<string | null>(null);
@@ -61,19 +64,39 @@ const HouseholdLinkSettings: React.FC = () => {
     }, [fetchLinks]);
 
     const handleGenerateCode = async () => {
+        if (children.length === 0) {
+            showAlert('Info', 'No children found in this household to link.', 'info');
+            return;
+        }
+
+        // For MVP, auto-select first child if multiple not supported in UI yet
+        // In a real UI, we would show a modal to select the child.
+        const targetChild = children[0];
+
         setGenerating(true);
         try {
-            // Ideally we select a child, but for now let's assume we generate for a specific child or generic?
-            // The API requires childId in body?
-            // Let's check the route: router.post('/child/generate-link-code', generateLinkCode);
-            // The controller probably expects childId.
-            // For this MVP, let's assume we have a child selector or just pick the first child?
-            // Or maybe the UI should have a dropdown.
-            // For now, I'll just show a placeholder alert if no child selected, but since I don't have child list here...
-            // I'll skip the actual API call for now and just show the UI structure.
+            const response = await fetch('/web-bff/household/links/generate', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    childId: targetChild._id
+                })
+            });
 
-            // TODO: Implement child selection logic
-            showAlert('Coming Soon', 'Please select a child to generate a code for (Not implemented in this MVP step)', 'info');
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.message || 'Failed to generate code');
+            }
+
+            const data = await response.json();
+            // Assuming the API returns the code in data.data.code
+            const code = data.data.code;
+            setGeneratedCode(code);
+
+            showAlert('Success', `Link Code Generated for ${targetChild.displayName}: ${code}. Share this with the other parent.`, 'success');
 
         } catch (e: any) {
             showAlert('Error', e.message, 'error');

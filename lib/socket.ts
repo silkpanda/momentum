@@ -15,18 +15,30 @@ let socket: Socket | null = null;
 /**
  * Initialize and return the WebSocket connection
  */
-export const getSocket = (): Socket => {
+export const getSocket = (token?: string | null): Socket => {
+    // If the socket already exists and the token matches (or we don't care about token changes for the singleton),
+    // we could return existing. But if token changes, we should probably reconnect.
+    // For simplicity, let's allow reconnection if called.
+
+    if (socket && socket.connected) {
+        // Check if we need to update auth? Socket.io doesn't easily support updating auth without reconnect.
+        // We'll rely on the caller to disconnect first if token changes.
+        return socket;
+    }
+
+    // If socket exists but disconnected, or null, create/connect.
     if (!socket) {
         const socketUrl = getSocketUrl();
         console.log('[WebSocket] Connecting to:', socketUrl);
 
         socket = io(socketUrl, {
-            transports: ['websocket', 'polling'], // Try WebSocket first, fallback to polling
+            transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
             reconnectionDelayMax: 5000,
             timeout: 20000,
+            auth: token ? { token: `Bearer ${token}` } : undefined, // Pass token in auth
         });
 
         // Connection event handlers
@@ -53,6 +65,12 @@ export const getSocket = (): Socket => {
         socket.on('reconnect_failed', () => {
             console.error('[WebSocket] Reconnection failed');
         });
+    } else if (!socket.connected) {
+        // If socket exists but is disconnected, ensure auth is updated before connecting
+        if (token) {
+            socket.auth = { token: `Bearer ${token}` };
+        }
+        socket.connect();
     }
 
     return socket;

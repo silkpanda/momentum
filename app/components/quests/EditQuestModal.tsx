@@ -25,9 +25,9 @@ const EditQuestModal: React.FC<EditQuestModalProps> = ({ quest, onClose, onQuest
         description: quest.description || '',
         pointsValue: quest.pointsValue,
         questType: quest.questType,
-        recurrence: quest.recurrence?.frequency || 'none',
+        recurrence: quest.recurrence?.frequency || 'daily',
         maxClaims: quest.maxClaims || 1,
-        dueDate: quest.dueDate ? new Date(quest.dueDate).toISOString().split('T')[0] : '',
+        dueDate: quest.expiresAt ? new Date(quest.expiresAt).toISOString().split('T')[0] : '',
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -140,13 +140,14 @@ const EditQuestModal: React.FC<EditQuestModalProps> = ({ quest, onClose, onQuest
                                 className="w-full p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
                             >
                                 <option value="one-time">One-time</option>
-                                <option value="recurring">Recurring</option>
+                                <option value="limited">Limited</option>
+                                <option value="unlimited">Unlimited (Recurring)</option>
                             </select>
                         </div>
                     </div>
 
-                    {/* Recurrence (if recurring) */}
-                    {formData.questType === 'recurring' && (
+                    {/* Recurrence (if unlimited) */}
+                    {formData.questType === 'unlimited' && (
                         <div>
                             <label className="block text-sm font-medium text-text-secondary mb-1">Frequency</label>
                             <div className="relative">

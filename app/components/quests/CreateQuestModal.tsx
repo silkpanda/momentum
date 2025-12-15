@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import { X, Zap, Award, Calendar, Repeat, Check, Loader, AlertTriangle } from 'lucide-react';
 import { useSession } from '../layout/SessionContext';
-import { IQuest } from './QuestList';
+import { IQuest } from '../../types';
 import {
     validateForm,
     getInitialFormData,
@@ -35,7 +35,7 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ onClose, onQuestCre
 
     // Form State
     const [formData, setFormData] = useState<FormData>(getInitialFormData(QUEST_FORM_FIELDS));
-    const [questType, setQuestType] = useState<'one-time' | 'recurring'>('one-time');
+    const [questType, setQuestType] = useState<'one-time' | 'limited' | 'unlimited'>('one-time');
     const [recurrence, setRecurrence] = useState<'daily' | 'weekly' | 'monthly'>('daily');
 
     const handleChange = (name: string, value: any) => {
@@ -70,7 +70,7 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ onClose, onQuestCre
             const payload = {
                 ...sanitizedData,
                 questType,
-                recurrence: questType === 'recurring' ? { frequency: recurrence } : undefined,
+                recurrence: questType === 'unlimited' ? { frequency: recurrence } : undefined,
             };
 
             const response = await fetch('/web-bff/quests', {
@@ -168,13 +168,14 @@ const CreateQuestModal: React.FC<CreateQuestModalProps> = ({ onClose, onQuestCre
                                 className="w-full p-3 rounded-lg border border-border-subtle bg-bg-canvas text-text-primary focus:ring-2 focus:ring-action-primary/20 focus:border-action-primary outline-none"
                             >
                                 <option value="one-time">One-time</option>
-                                <option value="recurring">Recurring</option>
+                                <option value="limited">Limited</option>
+                                <option value="unlimited">Unlimited (Recurring)</option>
                             </select>
                         </div>
                     </div>
 
-                    {/* Recurrence (if recurring) */}
-                    {questType === 'recurring' && (
+                    {/* Recurrence (if unlimited/recurring) */}
+                    {questType === 'unlimited' && (
                         <div>
                             <label className="block text-sm font-medium text-text-secondary mb-1">Frequency</label>
                             <div className="relative">

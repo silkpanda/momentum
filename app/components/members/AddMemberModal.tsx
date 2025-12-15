@@ -121,36 +121,8 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                     </div>
                 </div>
 
-                {/* Role Selector */}
-                <div className="space-y-1">
-                    <label className="block text-sm font-medium text-text-secondary">
-                        Role
-                    </label>
-                    <div className="flex space-x-4">
-                        <label className="flex items-center space-x-2 cursor-pointer">
-                            <input
-                                type="radio"
-                                name="role"
-                                value="Child"
-                                checked={role === 'Child'}
-                                onChange={() => setRole('Child')}
-                                className="text-action-primary focus:ring-action-primary"
-                            />
-                            <span className="text-text-primary">Child</span>
-                        </label>
-                        <label className="flex items-center space-x-2 cursor-pointer">
-                            <input
-                                type="radio"
-                                name="role"
-                                value="Parent"
-                                checked={role === 'Parent'}
-                                onChange={() => setRole('Parent')}
-                                className="text-action-primary focus:ring-action-primary"
-                            />
-                            <span className="text-text-primary">Parent (Admin)</span>
-                        </label>
-                    </div>
-                </div>
+                {/* Role: Defaults to Child (Hidden) */}
+                <input type="hidden" name="role" value="Child" />
 
                 {/* Color Picker */}
                 <div className="space-y-1">

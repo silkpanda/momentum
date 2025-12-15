@@ -36,7 +36,7 @@ const RoutineItem: React.FC<RoutineItemProps> = ({ routine, onUpdate, onDelete }
     });
 
     const isParent = user?.role === 'Parent';
-    const isAssignedToMe = routine.assignedTo === user?._id;
+    const isAssignedToMe = routine.memberId === user?._id;
 
     const showAlert = (title: string, message: string, variant: 'info' | 'error' | 'success' = 'info') => {
         setAlertConfig({ isOpen: true, title, message, variant });
@@ -118,10 +118,8 @@ const RoutineItem: React.FC<RoutineItemProps> = ({ routine, onUpdate, onDelete }
                             <div>
                                 <h3 className="font-medium text-text-primary line-clamp-1">{routine.title}</h3>
                                 <div className="flex items-center text-xs text-text-secondary mt-0.5">
-                                    <Award className="w-3 h-3 mr-1 text-brand-secondary" />
-                                    <span className="font-semibold text-brand-secondary">{routine.pointsReward} pts</span>
-                                    <span className="mx-1">•</span>
-                                    <span className="capitalize">{routine.schedule.frequency}</span>
+                                    <Clock className="w-3 h-3 mr-1 text-brand-secondary" />
+                                    <span className="capitalize">{routine.timeOfDay}</span>
                                 </div>
                             </div>
                         </div>
@@ -147,9 +145,7 @@ const RoutineItem: React.FC<RoutineItemProps> = ({ routine, onUpdate, onDelete }
                         )}
                     </div>
 
-                    <p className="text-sm text-text-secondary mb-4 line-clamp-2 min-h-[2.5rem]">
-                        {routine.description || "No description provided."}
-                    </p>
+                    {/* Description removed as not in backend model */}
 
                     {/* Steps Preview / Expansion */}
                     <div className="border-t border-border-subtle pt-3">
@@ -157,13 +153,13 @@ const RoutineItem: React.FC<RoutineItemProps> = ({ routine, onUpdate, onDelete }
                             onClick={() => setIsExpanded(!isExpanded)}
                             className="flex items-center justify-between w-full text-xs font-medium text-text-secondary hover:text-text-primary transition-colors"
                         >
-                            <span>{routine.steps.length} Steps</span>
+                            <span>{routine.items.length} Steps</span>
                             {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                         </button>
 
                         {isExpanded && (
                             <ul className="mt-3 space-y-2">
-                                {routine.steps.map((step, index) => (
+                                {routine.items.map((step, index) => (
                                     <li key={index} className="flex items-start text-sm text-text-primary">
                                         <div className="mt-0.5 mr-2 w-4 h-4 rounded-full border border-border-subtle flex-shrink-0" />
                                         <span>{step.title}</span>

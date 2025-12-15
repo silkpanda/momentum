@@ -3,27 +3,16 @@
 
 import { useEffect, useCallback, useRef } from 'react';
 import { Socket } from 'socket.io-client';
-import { getSocket, disconnectSocket, SocketEventName } from '../socket';
+import { SocketEventName } from '../socket';
+import { useSocketContext } from '../providers/SocketProvider';
 
 /**
  * Custom hook for WebSocket functionality
- * Automatically connects on mount and disconnects on unmount
+ * Returns the socket instance from the SocketProvider
  */
 export function useSocket() {
-    const socketRef = useRef<Socket | null>(null);
-
-    useEffect(() => {
-        // Initialize socket connection
-        socketRef.current = getSocket();
-
-        // Cleanup on unmount
-        return () => {
-            // Note: We don't disconnect here as other components might be using it
-            // The socket will disconnect when the user navigates away or closes the tab
-        };
-    }, []);
-
-    return socketRef.current;
+    const { socket } = useSocketContext();
+    return socket;
 }
 
 /**
@@ -84,28 +73,6 @@ export function useSocketEmit() {
  * Custom hook to get socket connection status
  */
 export function useSocketStatus() {
-    const socket = useSocket();
-    const [isConnected, setIsConnected] = useState(false);
-
-    useEffect(() => {
-        if (!socket) return;
-
-        const handleConnect = () => setIsConnected(true);
-        const handleDisconnect = () => setIsConnected(false);
-
-        setIsConnected(socket.connected);
-
-        socket.on('connect', handleConnect);
-        socket.on('disconnect', handleDisconnect);
-
-        return () => {
-            socket.off('connect', handleConnect);
-            socket.off('disconnect', handleDisconnect);
-        };
-    }, [socket]);
-
+    const { isConnected } = useSocketContext();
     return isConnected;
 }
-
-// Import useState for useSocketStatus
-import { useState } from 'react';

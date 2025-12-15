@@ -150,18 +150,13 @@ const RecipeList: React.FC<RecipeListProps> = ({ recipes: initialRecipes }) => {
                             <p className="text-sm text-text-secondary line-clamp-2 mb-3">{recipe.description || "No description."}</p>
 
                             <div className="flex items-center space-x-4 text-xs text-text-tertiary">
-                                {(recipe.prepTime || recipe.cookTime) && (
+                                {(recipe.prepTimeMinutes || recipe.cookTimeMinutes) && (
                                     <div className="flex items-center">
                                         <Clock className="w-3 h-3 mr-1" />
-                                        <span>{(recipe.prepTime || 0) + (recipe.cookTime || 0)}m</span>
+                                        <span>{(recipe.prepTimeMinutes || 0) + (recipe.cookTimeMinutes || 0)}m</span>
                                     </div>
                                 )}
-                                {recipe.servings && (
-                                    <div className="flex items-center">
-                                        <Users className="w-3 h-3 mr-1" />
-                                        <span>{recipe.servings} ppl</span>
-                                    </div>
-                                )}
+
                             </div>
                         </div>
                     ))

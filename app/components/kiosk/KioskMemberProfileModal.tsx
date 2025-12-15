@@ -17,6 +17,8 @@ interface KioskMemberProfileModalProps {
     allTasks: ITask[];
     allItems: IStoreItem[];
     onClose: () => void;
+    onRefresh: () => Promise<void>;
+    onUpdateTask: (taskId: string, updates: Partial<ITask>) => void;
 }
 
 type TabType = 'tasks' | 'store' | 'profile';
@@ -26,6 +28,8 @@ const KioskMemberProfileModal: React.FC<KioskMemberProfileModalProps> = ({
     allTasks,
     allItems,
     onClose,
+    onRefresh,
+    onUpdateTask,
 }) => {
     const { token } = useSession();
     const [activeTab, setActiveTab] = useState<TabType>('tasks');
@@ -45,25 +49,23 @@ const KioskMemberProfileModal: React.FC<KioskMemberProfileModalProps> = ({
         setAlertConfig({ isOpen: true, title, message, variant });
     };
 
-    // Optimistic state for submitted tasks
-    const [submittedTaskIds, setSubmittedTaskIds] = useState<Set<string>>(new Set());
+    // No longer need submittedTaskIds local state as we update global state optimistically
 
     // ... existing filters ...
     const memberTasks = allTasks.filter(task =>
-        (!task.isCompleted || task.status === 'PendingApproval') && // Show pending
+        task.status !== 'Approved' && // Show pending
         task.assignedTo?.some(assignee => assignee._id === member._id)
     );
 
     // ... (focus task logic remains same)
 
-    const focusedTask = member.currentFocusTaskId
-        ? memberTasks.find(t => t._id === member.currentFocusTaskId)
+    const focusedTask = member.focusedTaskId
+        ? memberTasks.find(t => t._id === member.focusedTaskId)
         : undefined;
 
     const affordableItems = allItems.filter(item => item.cost <= member.pointsTotal);
     const futureItems = allItems.filter(item => item.cost > member.pointsTotal);
 
-    // ... handleCompleteTask ...
     const handleCompleteTask = async (taskId: string) => {
         if (completingTaskId) return;
 
@@ -71,6 +73,12 @@ const KioskMemberProfileModal: React.FC<KioskMemberProfileModalProps> = ({
         setError(null);
 
         try {
+            // Optimistic update - immediately mark as pending/completed in UI
+            // This will cause the tasks list to re-render immediately if logic filters it differently
+            // But usually we want to see it change state.
+            // If we set status='PendingApproval', it stays in list but button changes state.
+            onUpdateTask(taskId, { status: 'PendingApproval' });
+
             const response = await fetch(`/web-bff/tasks/${taskId}/complete`, {
                 method: 'POST',
                 headers: {
@@ -83,15 +91,13 @@ const KioskMemberProfileModal: React.FC<KioskMemberProfileModalProps> = ({
             const data = await response.json();
 
             if (!response.ok) {
+                // Revert if failed
+                onRefresh();
                 throw new Error(data.message || 'Failed to complete task');
             }
 
-            // Update local state to reflect change (e.g. set to PendingApproval)
-            // We do NOT close the modal anymore so the user secs the feedback
-            const updatedTask = data.data || data;
-
-            // Optimistically mark as submitted
-            setSubmittedTaskIds(prev => new Set(prev).add(taskId));
+            // Manual silent refresh for consistency
+            await onRefresh();
 
             // Show success feedback
             showAlert('Great Job!', 'Task submitted for approval!', 'success');
@@ -279,10 +285,10 @@ const KioskMemberProfileModal: React.FC<KioskMemberProfileModalProps> = ({
                                                 {/* Complete Button */}
                                                 <button
                                                     onClick={() => handleCompleteTask(task._id)}
-                                                    disabled={completingTaskId === task._id || submittedTaskIds.has(task._id) || task.status === 'PendingApproval'}
+                                                    disabled={completingTaskId === task._id || task.status === 'PendingApproval'}
                                                     className={`ml-4 px-6 py-3 rounded-lg font-medium 
                                                          flex items-center space-x-2 transition-all shadow-md hover:shadow-lg
-                                                         ${submittedTaskIds.has(task._id) || task.status === 'PendingApproval'
+                                                         ${task.status === 'PendingApproval'
                                                             ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20 cursor-default shadow-none'
                                                             : 'bg-signal-success text-white hover:bg-signal-success/90 disabled:opacity-50 disabled:cursor-not-allowed'
                                                         }`}
@@ -292,7 +298,7 @@ const KioskMemberProfileModal: React.FC<KioskMemberProfileModalProps> = ({
                                                             <Loader className="w-5 h-5 animate-spin" />
                                                             <span>Completing...</span>
                                                         </>
-                                                    ) : submittedTaskIds.has(task._id) || task.status === 'PendingApproval' ? (
+                                                    ) : task.status === 'PendingApproval' ? (
                                                         <>
                                                             <Clock className="w-5 h-5" />
                                                             <span>Pending Approval</span>

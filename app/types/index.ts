@@ -6,18 +6,21 @@
 // --- Task Interface ---
 export interface ITask {
     _id: string;
+    householdId: string;
+    visibleToHouseholds?: string[];
     title: string;
-    description: string;
+    description?: string;
     pointsValue: number;
-    isCompleted: boolean;
-    status?: 'Pending' | 'In Progress' | 'Completed' | 'Approved' | 'PendingApproval';
+    status: 'Pending' | 'PendingApproval' | 'Approved';
     assignedTo: {
         _id: string;
         displayName: string;
         profileColor?: string;
     }[];
-    householdRefId: string;
     completedBy?: string;
+    dueDate?: string; // Date string
+    isRecurring: boolean;
+    recurrenceInterval?: 'daily' | 'weekly' | 'monthly';
     createdAt?: Date | string;
     updatedAt?: Date | string;
 }
@@ -25,32 +28,38 @@ export interface ITask {
 // --- Quest Interface ---
 export interface IQuestClaim {
     memberId: string;
-    status: 'claimed' | 'completed' | 'approved';
     claimedAt: string;
     completedAt?: string;
-    approvedAt?: string;
+    status: 'claimed' | 'completed' | 'approved';
+    pointsAwarded?: number;
+}
+
+export interface IQuestRecurrence {
+    frequency: 'daily' | 'weekly' | 'monthly';
+    resetTime?: string;
+    lastReset?: string;
+    nextReset?: string;
 }
 
 export interface IQuest {
     _id: string;
+    householdId: string;
+    visibleToHouseholds?: string[];
     title: string;
-    description: string;
+    description?: string;
     pointsValue: number;
-    isActive: boolean;
+    questType: 'one-time' | 'limited' | 'unlimited';
+    maxClaims?: number;
+    currentClaims: number;
     claims: IQuestClaim[];
+    recurrence?: IQuestRecurrence;
+    isActive: boolean;
+    expiresAt?: string;
     createdBy?: string;
     createdAt?: Date | string;
-    // Added fields for edit modal compatibility
-    questType: 'one-time' | 'recurring';
-    maxClaims?: number;
-    dueDate?: string;
-    recurrence?: {
-        frequency: 'daily' | 'weekly' | 'monthly';
-        nextReset?: string; // Optionalized to be safe
-    };
-    status?: 'active' | 'claimed' | 'completed' | 'approved' | 'Active' | 'Completed' | 'Expired';
-    requirements?: string[];
-    expiresAt?: Date | string;
+    updatedAt?: Date | string;
+    // Virtual
+    isClaimable?: boolean;
 }
 
 // --- Store Item Interface ---
@@ -59,11 +68,10 @@ export interface IStoreItem {
     itemName: string;
     description: string;
     cost: number;
-    householdRefId: string;
+    isAvailable: boolean;
     stock?: number;
     isInfinite?: boolean;
-    image?: string;
-    icon?: string;
+    householdRefId: string;
 }
 
 // --- Member Interface ---
@@ -76,15 +84,21 @@ export interface IHouseholdMemberProfile {
     };
     displayName: string;
     role: 'Parent' | 'Child';
-    profileColor?: string; // Optional: only for children
+    profileColor: string; // Mandatory in backend
     pointsTotal: number;
-    currentFocusTaskId?: string;
+    focusedTaskId?: string; // ADHD Feature: When set, child sees only this task in Focus Mode
+    currentStreak?: number;
+    longestStreak?: number;
+    streakMultiplier?: number;
+    isLinkedChild?: boolean;
 }
 
 export interface IHousehold {
     _id: string;
     householdName: string;
     memberProfiles: IHouseholdMemberProfile[];
+    familyColor?: string;
+    inviteCode?: string;
 }
 
 // --- Restaurant Interface ---
@@ -95,41 +109,49 @@ export interface IRestaurant {
     address?: string;
     phone?: string;
     website?: string;
-    rating?: number;
+    rating?: number; // Kept for UI compatibility if needed, but not in backend model
     priceRange?: '$' | '$$' | '$$$' | '$$$$';
+    favoriteOrders?: {
+        itemName: string;
+        forMemberId?: string;
+    }[];
 }
 
 // --- Recipe Interface ---
 export interface IRecipe {
     _id: string;
+    householdId: string;
     name: string;
     description?: string;
-    prepTime?: number;
-    cookTime?: number;
-    servings?: number;
-    ingredients?: string[];
-    instructions?: string[];
-    imageUrl?: string;
-    tags?: string[];
+    ingredients: string[];
+    instructions: string[];
+    prepTimeMinutes?: number; // Renamed from prepTime
+    cookTimeMinutes?: number; // Renamed from cookTime
+    image?: string; // Renamed from imageUrl
+    tags: string[];
 }
 
-// --- Meal Plan Interface ---
 // --- Meal Entry Interface ---
 export interface IMealEntry {
     _id: string;
+    householdId: string;
     date: Date | string;
     mealType: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
+    itemType: 'Recipe' | 'Restaurant' | 'Custom';
     itemId?: {
         _id: string;
-        name?: string; // For recipes and restaurants
+        name?: string;
         description?: string;
     };
-    itemType: 'Recipe' | 'Restaurant' | 'Custom';
     customTitle?: string;
-    notes?: string;
+    rating?: number;
+    isRated?: boolean;
 }
 
 // --- Weekly Meal Plan Interface ---
+// Note: Backend doesn't strictly have a "WeeklyMealPlan" model visible, 
+// usually it's just a collection of MealPlans. Keeping strictly to backend models 
+// essentially means working with array of IMealEntry. 
 export interface IMealPlan {
     _id: string;
     startDate: string;
@@ -137,38 +159,40 @@ export interface IMealPlan {
     meals: IMealEntry[];
 }
 
-// --- Routine Interface ---
-export interface IRoutineStep {
+// --- Routine Interface (Already Aligned) ---
+export interface IRoutineItem {
+    _id?: string;
     title: string;
+    order: number;
     isCompleted: boolean;
-    _id?: string; // Optional as per previous definition, but RoutineList doesn't have it. Keeping it optional just in case.
+    completedAt?: string | Date;
 }
 
 export interface IRoutine {
     _id: string;
+    householdId: string;
+    visibleToHouseholds?: string[];
+    memberId: string;
+    timeOfDay: 'morning' | 'noon' | 'night';
     title: string;
-    description?: string;
-    assignedTo: string; // Member ID
-    steps: IRoutineStep[];
-    schedule: {
-        frequency: 'daily' | 'weekly';
-        days?: string[]; // e.g., ['Monday', 'Wednesday']
-        timeOfDay?: string;
-    };
-    pointsReward: number;
-    icon?: string;
-    color?: string;
+    items: IRoutineItem[];
     isActive: boolean;
-    lastCompleted?: string; // ISO Date
+    lastResetDate?: string;
+    createdBy: string;
+    createdAt?: string | Date;
+    updatedAt?: string | Date;
 }
 
 // --- Wishlist Item Interface ---
 export interface IWishlistItem {
     _id: string;
-    title: string;
-    cost: number;
-    url?: string;
-    imageUrl?: string;
     memberId: string;
+    householdId: string;
+    title: string;
+    description?: string;
+    pointsCost: number; // Renamed from cost
+    priority: 'low' | 'medium' | 'high'; // Added
+    imageUrl?: string;
     isPurchased: boolean;
+    purchasedAt?: string; // Added
 }

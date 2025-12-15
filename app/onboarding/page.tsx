@@ -58,8 +58,8 @@ export default function OnboardingPage() {
                 try {
                     const token = localStorage.getItem('momentum_token');
                     if (!token) {
-                        router.push('/login');
-                        return;
+                        // Treat missing token as a temporary failure to retry
+                        throw new Error('No token found');
                     }
 
                     const response = await fetch('/web-bff/auth/me', {
@@ -87,7 +87,7 @@ export default function OnboardingPage() {
                         return;
                     }
 
-                } catch (err) {
+                } catch (err: any) {
                     console.error(`Error loading user data (attempt ${retries + 1}):`, err);
                 }
 
@@ -98,7 +98,7 @@ export default function OnboardingPage() {
             }
 
             // If we fall through here, all retries failed
-            router.push('/login');
+            router.push('/login'); // Fail safe
         };
 
         loadUserData();

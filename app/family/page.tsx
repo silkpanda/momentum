@@ -18,13 +18,20 @@ import ThemeSwitcher from '../components/settings/ThemeSwitcher';
  */
 export default function FamilyPage() {
     console.log('[FamilyPage] Component rendering');
-    const { user } = useSession();
+    const { user, isLoading } = useSession();
     const router = useRouter();
 
-    console.log('[FamilyPage] User:', user);
+    console.log('[FamilyPage] User:', user, 'Loading:', isLoading);
 
-    if (!user) {
-        console.log('[FamilyPage] No user, showing loading');
+    // Redirect if not authenticated
+    if (!isLoading && !user) {
+        console.log('[FamilyPage] No user found, redirecting to login');
+        router.push('/login');
+        return <Loading />;
+    }
+
+    if (isLoading || !user) {
+        console.log('[FamilyPage] Loading user data...');
         return <Loading />;
     }
 

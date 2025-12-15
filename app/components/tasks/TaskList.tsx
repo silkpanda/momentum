@@ -97,7 +97,7 @@ const TaskList: React.FC = () => {
         }
     };
 
-    const handleTaskCreated = (newTask: ITask) => {
+    const handleTaskCreated = (newTasks: ITask[]) => {
         fetchData();
     };
 
@@ -157,8 +157,8 @@ const TaskList: React.FC = () => {
 
             {(() => {
                 const pendingApprovalTasks = tasks.filter(t => t.status === 'PendingApproval');
-                const completedTasks = tasks.filter(t => t.status === 'Approved' || (t.isCompleted && t.status !== 'PendingApproval'));
-                const incompleteTasks = tasks.filter(t => !t.isCompleted && t.status !== 'PendingApproval' && t.status !== 'Approved');
+                const completedTasks = tasks.filter(t => t.status === 'Approved');
+                const incompleteTasks = tasks.filter(t => t.status === 'Pending');
 
                 const assignedIncompleteTasks = incompleteTasks.filter(
                     t => t.assignedTo && t.assignedTo.length > 0

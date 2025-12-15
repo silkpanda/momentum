@@ -6,15 +6,7 @@ import { useSession } from '../layout/SessionContext';
 import ConfirmModal from '../shared/ConfirmModal';
 import AlertModal from '../shared/AlertModal';
 
-interface IWishlistItem {
-    _id: string;
-    title: string;
-    description?: string;
-    pointsCost: number;
-    priority: 'low' | 'medium' | 'high';
-    isPurchased: boolean;
-    imageUrl?: string;
-}
+import { IWishlistItem } from '../../types';
 
 const Wishlist: React.FC = () => {
     const [items, setItems] = useState<IWishlistItem[]>([]);

@@ -72,7 +72,7 @@ const RoutineManagerModal: React.FC<RoutineManagerModalProps> = ({ onClose }) =>
     };
 
     const renderRoutineItem = (routine: IRoutine) => {
-        const assignedMember = members.find(m => m._id === routine.assignedTo);
+        const assignedMember = members.find(m => m._id === routine.memberId);
 
         return (
             <div
@@ -89,9 +89,9 @@ const RoutineManagerModal: React.FC<RoutineManagerModalProps> = ({ onClose }) =>
                                 {routine.title}
                             </h4>
                             <div className="flex items-center space-x-2 text-sm text-text-secondary">
-                                <span className="flex items-center">
+                                <span className="flex items-center capitalize">
                                     <Repeat className="w-3 h-3 mr-1" />
-                                    {routine.schedule.frequency}
+                                    {routine.timeOfDay}
                                 </span>
                                 <span>•</span>
                                 <span>{assignedMember?.displayName || 'Unassigned'}</span>
@@ -119,15 +119,10 @@ const RoutineManagerModal: React.FC<RoutineManagerModalProps> = ({ onClose }) =>
                 </div>
 
                 <div className="mt-3 pl-13">
-                    <p className="text-sm text-text-secondary line-clamp-2">
-                        {routine.description || 'No description'}
-                    </p>
+                    {/* Description removed */}
                     <div className="mt-2 flex items-center space-x-2">
                         <span className="text-xs font-medium px-2 py-1 bg-bg-canvas rounded text-text-secondary border border-border-subtle">
-                            {routine.steps.length} steps
-                        </span>
-                        <span className="text-xs font-medium px-2 py-1 bg-action-primary/10 text-action-primary rounded">
-                            {routine.pointsReward} pts
+                            {routine.items.length} items
                         </span>
                     </div>
                 </div>

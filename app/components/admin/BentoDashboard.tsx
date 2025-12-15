@@ -215,8 +215,8 @@ const BentoDashboard: React.FC = () => {
                 <CreateTaskModal
                     householdMembers={members}
                     onClose={() => setIsTaskModalOpen(false)}
-                    onTaskCreated={(newTask) => {
-                        addTask(newTask);
+                    onTaskCreated={(newTasks) => {
+                        newTasks.forEach(task => addTask(task));
                         setIsTaskModalOpen(false);
                     }}
                 />

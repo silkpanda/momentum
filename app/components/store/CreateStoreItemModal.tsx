@@ -10,7 +10,7 @@
 
 import React, { useState } from 'react';
 import { Gift, Check, Loader, Type, X, AlertTriangle, DollarSign } from 'lucide-react';
-import { IStoreItem } from './StoreItemList';
+import { IStoreItem } from '../../types';
 import { useSession } from '../layout/SessionContext';
 import {
     validateForm,
@@ -78,6 +78,7 @@ const CreateStoreItemModal: React.FC<CreateStoreItemModalProps> = ({ onClose, on
                     itemName: sanitizedData.itemName,
                     description: sanitizedData.description,
                     cost: sanitizedData.cost,
+                    isAvailable: true,
                 }),
             });
 

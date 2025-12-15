@@ -13,7 +13,7 @@ interface FocusModeModalProps {
 
 const FocusModeModal: React.FC<FocusModeModalProps> = ({ member, tasks, onClose, onFocusSet }) => {
     const { token } = useSession();
-    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(member.currentFocusTaskId || null);
+    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(member.focusedTaskId || null);
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSetFocus = async () => {
@@ -41,7 +41,7 @@ const FocusModeModal: React.FC<FocusModeModalProps> = ({ member, tasks, onClose,
         }
     };
 
-    const assignedTasks = tasks.filter(t => !t.isCompleted && t.assignedTo.some(a => a._id === member._id));
+    const assignedTasks = tasks.filter(t => t.status !== 'Approved' && t.assignedTo.some(a => a._id === member._id));
 
     return (
         <Modal isOpen={true} onClose={onClose} title="Set Focus Task" maxWidth="max-w-lg">
