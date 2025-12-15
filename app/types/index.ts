@@ -25,6 +25,23 @@ export interface ITask {
     updatedAt?: Date | string;
 }
 
+// --- Calendar Event Interface ---
+export interface ICalendarEvent {
+    id: string;
+    title: string;
+    startDate: string; // ISO String
+    endDate: string;   // ISO String
+    allDay?: boolean;
+    location?: string;
+    description?: string;
+    attendees?: {
+        email: string;
+        displayName?: string;
+        responseStatus?: string;
+    }[];
+    color?: string;
+}
+
 // --- Quest Interface ---
 export interface IQuestClaim {
     memberId: string;

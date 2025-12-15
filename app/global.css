@@ -13,16 +13,20 @@ body {
 
 /* --- 4. Define Custom Theme (based on Style Guide, Section 3.2: "Calm Light") --- */
 @theme {
-  /* Text and Action Colors (Red-600 is the fix) */
-  --color-text-primary: #111827;       /* text-gray-900 [cite: 365] */
-  --color-text-secondary: #4B5563;    /* text-gray-600 [cite: 366] */
-  --color-action-primary: #4F46E5;    /* bg-indigo-600 [cite: 368] */
-  --color-action-hover: #4338CA;      /* bg-indigo-700 [cite: 369] (Approximation for hover state) */
-  --color-signal-success: #16A34A;    /* text-green-600 [cite: 370] */
-  --color-signal-alert: #DC2626;      /* text-red-600 [cite: 371] (The missing color: Red-600) */
+  /* Text and Action Colors */
+  --color-text-primary: #111827;       /* text-gray-900 */
+  --color-text-secondary: #4B5563;    /* text-gray-600 */
+  --color-action-primary: #6366F1;    /* bentoPalette.brandPrimary (#6366F1) */
+  --color-action-hover: #4F46E5;      /* Darker shade */
+  --color-signal-success: #16A34A;    /* text-green-600 */
+  --color-signal-alert: #F59E0B;      /* bentoPalette.alert (#F59E0B) - Note: Used for high visibility alerts/food */
+  --color-signal-error: #DC2626;      /* Keep red for errors */
   
   /* Background and Border Colors */
-  --color-bg-canvas: #F9FAFB;         /* bg-gray-50 [cite: 363] */
-  --color-bg-surface: #FFFFFF;        /* bg-white [cite: 364] */
-  --color-border-subtle: #E5E7EB;     /* border-gray-200 [cite: 367] */
+  --color-bg-canvas: #FFF9F5;         /* bentoPalette.canvas (#FFF9F5) */
+  --color-bg-surface: #FFFFFF;        /* bentoPalette.surface (#FFFFFF) */
+  --color-border-subtle: #E5E7EB;     /* border-gray-200 */
+
+  /* Spacing & Radius */
+  --radius-xl: 24px;                  /* "The Squish" */
 }
