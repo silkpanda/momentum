@@ -1,19 +1,23 @@
 // =========================================================
 // momentum-web/app/admin/page.tsx
-// Consolidated Parent View - Bento Command Center
+// Consolidated Parent View - Command Center, Briefing, Mission
 // =========================================================
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useSession } from '../components/layout/SessionContext';
 import { useRouter } from 'next/navigation';
-import { Shield, ArrowLeft } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import Loading from '../components/layout/Loading';
 import BentoDashboard from '../components/admin/BentoDashboard';
+import ParentViewSwitcher, { ParentViewType } from '../components/admin/ParentViewSwitcher';
+import MorningBriefing from '../components/admin/views/MorningBriefing';
+import MissionControl from '../components/admin/views/MissionControl';
 
 export default function AdminPage() {
     const { user } = useSession();
     const router = useRouter();
+    const [currentView, setCurrentView] = useState<ParentViewType>('bento');
 
     // Role-based access control
     if (!user) {
@@ -25,13 +29,13 @@ export default function AdminPage() {
             <div className="min-h-screen flex items-center justify-center bg-bg-canvas p-8">
                 <div className="bg-bg-surface p-8 rounded-2xl shadow-xl border border-border-subtle max-w-md text-center">
                     <Shield className="w-16 h-16 text-signal-alert mx-auto mb-4" />
-                    <h1 className="text-2xl font-bold text-text-primary mb-2">Access Denied</h1>
+                    <h1 className="text-xl font-bold text-text-primary mb-2">Access Restricted</h1>
                     <p className="text-text-secondary mb-6">
-                        Only parents can access the Parent View.
+                        The Command Center is restricted to Parent accounts only.
                     </p>
                     <button
                         onClick={() => router.push('/family')}
-                        className="px-6 py-3 bg-action-primary text-white rounded-lg font-medium hover:bg-action-hover transition-all"
+                        className="w-full py-3 bg-action-primary text-white rounded-lg font-medium hover:bg-action-hover"
                     >
                         Return to Family View
                     </button>
@@ -40,34 +44,48 @@ export default function AdminPage() {
         );
     }
 
+    // Render the active view
+    const renderActiveView = () => {
+        switch (currentView) {
+            case 'briefing':
+                return <MorningBriefing />;
+            case 'mission':
+                return <MissionControl />;
+            case 'bento':
+            default:
+                return <BentoDashboard />;
+        }
+    };
+
     return (
         <div className="min-h-screen bg-bg-canvas">
-            {/* Header */}
-            <header className="bg-bg-surface border-b border-border-subtle shadow-sm">
-                <div className="max-w-7xl mx-auto px-6 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                            <button
-                                onClick={() => router.push('/family')}
-                                className="flex items-center space-x-2 text-text-secondary hover:text-action-primary transition-colors"
-                            >
-                                <ArrowLeft className="w-5 h-5" />
-                                <span className="text-sm font-medium">Back to Family View</span>
-                            </button>
-                            <div className="h-6 w-px bg-border-subtle" />
-                            <h1 className="text-xl font-bold text-text-primary">
-                                Command Center
-                            </h1>
-                        </div>
-                        <div className="text-sm text-text-secondary">
-                            Logged in as {user.firstName}
-                        </div>
+            {/* Header / Navbar */}
+            <header className="bg-bg-surface border-b border-border-subtle px-6 py-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
+                <div className="flex items-center space-x-4">
+                    <div className="p-2 bg-indigo-600 rounded-lg shadow-md">
+                        <Shield className="w-6 h-6 text-white" />
                     </div>
+                    <div>
+                        <div className="h-6 w-px bg-border-subtle" />
+                        <h1 className="text-xl font-bold text-text-primary">
+                            Command Center
+                        </h1>
+                    </div>
+                </div>
+                <div className="text-sm text-text-secondary">
+                    Logged in as {user.firstName}
                 </div>
             </header>
 
             {/* Dashboard Content */}
-            <BentoDashboard />
+            <div className="py-6">
+                <ParentViewSwitcher
+                    currentView={currentView}
+                    onViewChange={setCurrentView}
+                />
+
+                {renderActiveView()}
+            </div>
         </div>
     );
 }
